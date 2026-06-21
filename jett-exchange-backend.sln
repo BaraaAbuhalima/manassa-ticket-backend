@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "jett-exchange-backend", "jett-exchange-backend\jett-exchange-backend.csproj", "{AA28F61C-D16A-4DF7-AC53-5B53B632E1E8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AA28F61C-D16A-4DF7-AC53-5B53B632E1E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA28F61C-D16A-4DF7-AC53-5B53B632E1E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA28F61C-D16A-4DF7-AC53-5B53B632E1E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA28F61C-D16A-4DF7-AC53-5B53B632E1E8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
