@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using jett_exchange_backend.Models;
 
 namespace jett_exchange_backend.Data;
 
@@ -9,4 +10,5 @@ public class AppDbContext : DbContext
     {
     }
 
+    public DbSet<NormalJettTicket> Tickets { get; set; }
 }
