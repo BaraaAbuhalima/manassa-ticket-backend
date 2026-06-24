@@ -1,17 +1,20 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Models;
 
+[Index(nameof(TicketId), IsUnique = true)]
 public class NormalJettTicket
 {
     
     [Key]
-    public int Id { get; set; }
-    
-    [MaxLength(45)]    
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(30)]
+    public required string TicketId { get; set; }
+    [MaxLength(50)]    
     public required string OriginalOwnerName { get; set; }
-    [MaxLength(12)]   
+    [MaxLength(20)]   
     public required string OriginalOwnerPassportNumber { get; set; }
 
     public DateTime Date { get; set; }
