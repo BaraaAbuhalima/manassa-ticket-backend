@@ -4,6 +4,7 @@ using jett_exchange_backend.Data;
 using jett_exchange_backend.Models;
 using jett_exchange_backend.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace TestJettTicketBackend;
@@ -36,6 +37,35 @@ public class TicketControllerTests
         var controller = new TicketController(scope.ServiceProvider.GetRequiredService<ITicketService>());
 
         var result = await controller.GetById(Guid.NewGuid());
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Test]
+    public async Task DeleteById_ReturnsNoContent_WhenTicketExists()
+    {
+        await using var factory = new TestApplicationFactory();
+        var ticketId = Guid.NewGuid();
+        await using var scope = factory.Services.CreateAsyncScope();
+        await SeedAsync(scope.ServiceProvider, ticketId);
+
+        var controller = new TicketController(scope.ServiceProvider.GetRequiredService<ITicketService>());
+
+        var result = await controller.DeleteById(ticketId);
+
+        result.Should().BeOfType<NoContentResult>();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await context.NormalJettTickets.AnyAsync(t => t.Id == ticketId)).Should().BeFalse();
+    }
+
+    [Test]
+    public async Task DeleteById_ReturnsNotFound_WhenTicketDoesNotExist()
+    {
+        await using var factory = new TestApplicationFactory();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var controller = new TicketController(scope.ServiceProvider.GetRequiredService<ITicketService>());
+
+        var result = await controller.DeleteById(Guid.NewGuid());
 
         result.Should().BeOfType<NotFoundResult>();
     }

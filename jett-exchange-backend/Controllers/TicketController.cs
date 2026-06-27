@@ -20,4 +20,11 @@ public class TicketController : ControllerBase
         var ticket = await _ticketService.GetByIdAsync(id);
         return ticket is null ? NotFound() : Ok(ticket);
     }
+
+    [HttpDelete("id/{id:guid}")]
+    public async Task<IActionResult> DeleteById(Guid id)
+    {
+        var deleted = await _ticketService.DeleteByIdAsync(id);
+        return deleted ? NoContent() : NotFound();
+    }
 }

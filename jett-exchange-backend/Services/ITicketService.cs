@@ -5,4 +5,5 @@ namespace jett_exchange_backend.Services;
 public interface ITicketService
 {
     Task<Ticket?> GetByIdAsync(Guid id);
+    Task<bool> DeleteByIdAsync(Guid id);
 }

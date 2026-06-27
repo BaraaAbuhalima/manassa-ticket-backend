@@ -16,4 +16,17 @@ public class TicketService : ITicketService
         return await _dbContext.NormalJettTickets
             .FirstOrDefaultAsync(t => t.Id == id);
     }
+
+    public async Task<bool> DeleteByIdAsync(Guid id)
+    {
+        var ticket = await _dbContext.NormalJettTickets.FirstOrDefaultAsync(t => t.Id == id);
+        if (ticket is null)
+        {
+            return false;
+        }
+
+        _dbContext.NormalJettTickets.Remove(ticket);
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
 }
