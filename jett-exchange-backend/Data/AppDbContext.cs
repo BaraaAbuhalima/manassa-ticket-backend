@@ -10,5 +10,5 @@ public class AppDbContext : DbContext
     {
     }
 
-    public DbSet<NormalJettTicket> Tickets { get; set; }
+    public DbSet<Ticket> NormalJettTickets { get; set; }
 }

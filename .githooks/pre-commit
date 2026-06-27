@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+solution_path="$repo_root/jett-exchange-backend.sln"
+
+if ! command -v dotnet >/dev/null 2>&1; then
+  echo "dotnet is required to format the code before commit."
+  exit 1
+fi
+
+dotnet format "$solution_path" --verbosity minimal
+git add -A
