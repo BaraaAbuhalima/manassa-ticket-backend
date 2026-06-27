@@ -8,13 +8,11 @@ public class User
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
-
     [MaxLength(100)]
     public required string Name { get; set; }
 
     [MaxLength(254)]
     public required string Email { get; set; }
-
     [MaxLength(30)]
     public required string Phone { get; set; }
 

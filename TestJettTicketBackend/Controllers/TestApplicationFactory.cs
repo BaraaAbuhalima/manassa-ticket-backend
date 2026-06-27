@@ -26,7 +26,7 @@ public sealed class TestApplicationFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        context.NormalJettTickets.Add(ticket);
+        context.Tickets.Add(ticket);
         await context.SaveChangesAsync();
     }
 }

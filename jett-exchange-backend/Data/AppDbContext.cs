@@ -10,6 +10,23 @@ public class AppDbContext : DbContext
     {
     }
 
-    public DbSet<Ticket> NormalJettTickets { get; set; }
+    public DbSet<Ticket> Tickets { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<TicketOwner> TicketOwners { get; set; }
+    public DbSet<PaymentInfo> PaymentInfos { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<BankTransferInfo>().HasBaseType<PaymentInfo>();
+        modelBuilder.Entity<PhoneTransfer>().HasBaseType<PaymentInfo>();
+        modelBuilder.Entity<Reflect>().HasBaseType<PaymentInfo>();
+
+        modelBuilder.Entity<PaymentInfo>()
+            .HasOne(p => p.TicketOwner)
+            .WithOne(to => to.PaymentInfo)
+            .HasForeignKey<PaymentInfo>(p => p.TicketOwnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
 }

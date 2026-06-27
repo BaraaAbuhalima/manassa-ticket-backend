@@ -6,4 +6,5 @@ public interface ITicketService
 {
     Task<Ticket?> GetByIdAsync(Guid id);
     Task<bool> DeleteByIdAsync(Guid id);
+    Task<bool> DeleteByRefAsync(string Ref);
 }

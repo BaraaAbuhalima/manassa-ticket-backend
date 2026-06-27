@@ -13,19 +13,32 @@ public class TicketService : ITicketService
     }
     public async Task<Ticket?> GetByIdAsync(Guid id)
     {
-        return await _dbContext.NormalJettTickets
+        return await _dbContext.Tickets
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
     public async Task<bool> DeleteByIdAsync(Guid id)
     {
-        var ticket = await _dbContext.NormalJettTickets.FirstOrDefaultAsync(t => t.Id == id);
+        var ticket = await _dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == id);
         if (ticket is null)
         {
             return false;
         }
 
-        _dbContext.NormalJettTickets.Remove(ticket);
+        _dbContext.Tickets.Remove(ticket);
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteByRefAsync(string Ref)
+    {
+        var ticketOwner = await _dbContext.TicketOwners.FirstOrDefaultAsync(t => t.PINHashed == Ref);
+        if (ticketOwner is null)
+        {
+            return false;
+        }
+
+        _dbContext.Tickets.Remove(ticketOwner.Ticket);
         await _dbContext.SaveChangesAsync();
         return true;
     }

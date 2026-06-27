@@ -55,7 +55,7 @@ public class TicketControllerTests
 
         result.Should().BeOfType<NoContentResult>();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        (await context.NormalJettTickets.AnyAsync(t => t.Id == ticketId)).Should().BeFalse();
+        (await context.Tickets.AnyAsync(t => t.Id == ticketId)).Should().BeFalse();
     }
 
     [Test]
@@ -74,7 +74,7 @@ public class TicketControllerTests
     {
         var context = serviceProvider.GetRequiredService<AppDbContext>();
 
-        context.NormalJettTickets.Add(new Ticket
+        context.Tickets.Add(new Ticket
         {
             Id = ticketId,
             TicketId = "TCK-1001",

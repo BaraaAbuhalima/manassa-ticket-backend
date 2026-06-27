@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Models;
 
+
 [Index(nameof(TicketId), IsUnique = true)]
 public class Ticket
 {
