@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using jett_exchange_backend.Common;
+using jett_exchange_backend.Configuration;
 using jett_exchange_backend.Data;
 using jett_exchange_backend.Services;
 using jett_exchange_backend.Validators;
@@ -14,7 +15,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
-
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<PythonExtractorService>(
+    builder.Configuration.GetSection("PythonTicketExtractorService"));
 builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JettTickets"));
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();

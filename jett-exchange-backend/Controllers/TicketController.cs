@@ -68,40 +68,44 @@ public class TicketController : ControllerBase
     {
         var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
         Directory.CreateDirectory(uploadsFolder);
+
         var fileId = Guid.NewGuid();
         var fileName = $"{fileId}.pdf";
         var fullPath = Path.Combine(uploadsFolder, fileName);
+
+        // 1. Save file locally
         await using (var stream = new FileStream(fullPath, FileMode.Create))
         {
             await request.File.CopyToAsync(stream);
         }
-        return Ok(new ApiResponse<string>()
+
+        // 2. Call Python API
+        using var client = new HttpClient();
+
+        var response = await client.PostAsync(
+            $"http://python-service:8000/extract-ticket-pdf-info?file_path={fullPath}",
+            null
+        );
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return StatusCode((int)response.StatusCode, new ApiResponse<string>
+            {
+                Success = false,
+                Message = "Python service failed",
+                Data = null
+            });
+        }
+
+        // 3. Read Python response
+        var pythonResult = await response.Content.ReadAsStringAsync();
+
+        // 4. Return Python result to frontend
+        return Ok(new ApiResponse<string>
         {
             Success = true,
             Message = "Ticket processed successfully",
-            Data = "This is a placeholder response. Implement the actual processing logic."
+            Data = pythonResult
         });
-
-        // // 1. Save PDF temporarily
-        // var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".pdf");
-        //
-        // await using (var stream = new FileStream(tempFile, FileMode.Create))
-        // {
-        //     await request.File.CopyToAsync(stream);
-        // }
-        //
-        // try
-        // {
-        //     // 2. Call Python
-        //     var result = await RunPythonScript(tempFile, request);
-        //
-        //     return Ok(result);
-        // }
-        // finally
-        // {
-        //     // 3. Cleanup
-        //     if (System.IO.File.Exists(tempFile))
-        //         System.IO.File.Delete(tempFile);
-        // }
     }
 }

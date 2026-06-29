@@ -19,5 +19,14 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
-  }
+  },
+
+  "Storage": {
+    "TempTicketUploadPath": "tempTicketPdfs",
+    "PermanentUploadPath": "permanentTicketPdfs"
+  },
+  "PythonTicketExtractorService": {
+  "BaseUrl": "http://python-service:8000/"
+}
+
 }

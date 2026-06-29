@@ -1,0 +1,14 @@
+﻿version: "3.9"
+
+services:
+  api:
+    build: ./jett-exchange-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - python-service
+
+  python-service:
+    build: ./pdf-ticket-extract-serivice
+    ports:
+      - "8000:8000"

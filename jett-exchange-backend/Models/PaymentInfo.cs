@@ -8,11 +8,6 @@ public abstract class PaymentInfo
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
-
-    [ForeignKey(nameof(TicketOwner))]
-    public required Guid TicketOwnerId { get; set; }
-
-    public required TicketOwner TicketOwner { get; set; }
 }
 
 
