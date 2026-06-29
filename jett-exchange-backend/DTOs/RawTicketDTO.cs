@@ -3,12 +3,5 @@
 public class RawTicketDTO
 {
     public required string TicketId { get; set; }
-    public required string OriginalOwnerName { get; set; }
-    public required string OriginalOwnerPassportNumber { get; set; }
-
-    public DateTime TicketDateTime { get; set; }
-
-    public required decimal Price { get; set; }
-    public required int NumberOfBags { get; set; }
-    public required decimal TotalPrice { get; set; }
+    public required string BarCode { get; set; }
 }

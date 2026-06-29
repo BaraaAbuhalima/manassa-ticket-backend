@@ -22,12 +22,7 @@ async def process_pdf(file_path: str):
     # 👉 your processing here
     result = {
         "TicketId": "2235325623",
-        "OriginalOwnerName": "John Doe",
-        "OriginalOwnerPassportNumber": "A12345678",
-        "Date": "2026-01-01",
-        "Price": 100,
-        "NumberOfBags": 2,
-        "TotalPrice": 200
+        "BarCode":"123"
     }
 
     return result
