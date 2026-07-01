@@ -2,6 +2,7 @@
 
 public class ApiResponse<T>
 {
+    public int StatusCode { get; set; } = 200;
     public bool Success { get; set; }
     public string? Message { get; set; }
 

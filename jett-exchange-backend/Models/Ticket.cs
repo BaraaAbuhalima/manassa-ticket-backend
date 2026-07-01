@@ -6,6 +6,8 @@ namespace jett_exchange_backend.Models;
 
 
 [Index(nameof(TicketId), IsUnique = true)]
+
+[Index(nameof(Pin), IsUnique = true)]
 public class Ticket
 {
 
@@ -20,9 +22,9 @@ public class Ticket
 
     public DateTime TicketDateTime { get; set; }
 
-    [Column(TypeName = "decimal(3,2)")]
-    public required decimal Price { get; set; }
+
     public required int NumberOfBags { get; set; }
+    [Column(TypeName = "decimal(3,2)")]
     public required decimal TotalPrice { get; set; }
     [MaxLength(100)]
     public required string SellerName { get; set; }
@@ -36,9 +38,16 @@ public class Ticket
     public required PaymentMethod PaymentMethod { get; set; }
 
     public required PaymentInfo PaymentInfo { get; set; }
-    public required string PinHashed { get; set; }
-    public required TicketSellStatus status { get; set; }
+    [MaxLength(30)]
+    public required string Pin { get; set; }
+    public required TicketSellStatus Status { get; set; }
+    [MaxLength(30)]
     public required string TicketFilePath { get; set; }
 
-
+    [MaxLength(50)]
+    public string? BuyerName { get; set; }
+    [MaxLength(254)]
+    public string? BuyerEmail { get; set; }
+    [MaxLength(255)]
+    public string? StripePaymentIntentId { get; set; }
 }

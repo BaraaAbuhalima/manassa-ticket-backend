@@ -1,13 +1,14 @@
-﻿using jett_exchange_backend.Models;
+using jett_exchange_backend.Models;
 
 namespace jett_exchange_backend.DTOs.Requests;
 
 public class PostTicketRequest
 {
-    public IFormFile File { get; set; }
-    public string Email { get; set; }
-    public string PhoneNumber { get; set; }
+    public required IFormFile File { get; set; }
+    public required string SellerEmail { get; set; }
+    public required string SellerPhone { get; set; }
     public decimal Price { get; set; }
     public PaymentMethod PaymentMethod { get; set; }
-    public PaymentInfoRequest PaymentInfoRequest { get; set; }
+    public required PaymentInfoRequest PaymentInfoRequest { get; set; }
+    public required string SellerName { get; set; }
 }

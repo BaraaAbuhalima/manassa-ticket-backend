@@ -1,5 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using jett_exchange_backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Data;
 
@@ -11,20 +12,16 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Ticket> Tickets { get; set; }
-    public DbSet<PaymentInfo> PaymentInfos { get; set; }
+    public DbSet<TicketDateSubscription> TicketDateSubscriptions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<BankTransferInfo>().HasBaseType<PaymentInfo>();
-        modelBuilder.Entity<PhoneTransfer>().HasBaseType<PaymentInfo>();
-        modelBuilder.Entity<Reflect>().HasBaseType<PaymentInfo>();
-
-        // modelBuilder.Entity<PaymentInfo>()
-        //     .HasOne(p => p.TicketOwner)
-        //     .WithOne(to => to.PaymentInfo)
-        //     .HasForeignKey<PaymentInfo>(p => p.TicketOwnerId)
-        //     .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Ticket>()
+            .Property(t => t.PaymentInfo)
+            .HasConversion(
+                paymentInfo => JsonSerializer.Serialize(paymentInfo, PaymentInfo.JsonOptions),
+                json => JsonSerializer.Deserialize<PaymentInfo>(json, PaymentInfo.JsonOptions)!);
     }
 }

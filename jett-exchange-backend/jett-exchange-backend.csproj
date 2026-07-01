@@ -14,7 +14,10 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.14" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.9" />
+        <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
+        <PackageReference Include="Stripe.net" Version="52.1.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -25,6 +28,7 @@
 
     <ItemGroup>
       <Folder Include="Controllers\" />
+      <Folder Include="uploads\" />
     </ItemGroup>
 
 </Project>

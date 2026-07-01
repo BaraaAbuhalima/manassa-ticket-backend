@@ -2,6 +2,6 @@
 
 public class StorageOptions
 {
-    public string TempUploadPath { get; set; } = string.Empty;
-    public string TicketsPath { get; set; } = string.Empty;
+    public string TempTicketUploadPath { get; set; } = string.Empty;
+    public string PermanentUploadPath { get; set; } = string.Empty;
 }

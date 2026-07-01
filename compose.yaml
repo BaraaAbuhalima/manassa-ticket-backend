@@ -2,13 +2,50 @@
 
 services:
   api:
-    build: ./jett-exchange-backend
+    build:
+      context: .
+      dockerfile: jett-exchange-backend/Dockerfile
     ports:
       - "8080:8080"
     depends_on:
       - python-service
+      - rabbitmq
+      - mailhog
+    volumes:
+      - ../../uploads:/app/uploads
 
   python-service:
-    build: ./pdf-ticket-extract-serivice
+    build: ./pdf-ticket-extract-service
     ports:
       - "8000:8000"
+    volumes:
+      - ../../uploads:/app/uploads
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: jett-notification-service/Dockerfile
+    depends_on:
+      - rabbitmq
+      - mailhog
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
