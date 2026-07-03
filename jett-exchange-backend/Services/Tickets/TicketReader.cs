@@ -1,5 +1,6 @@
 using jett_exchange_backend.Common;
 using jett_exchange_backend.Data;
+using jett_exchange_backend.DTOs.Responses;
 using jett_exchange_backend.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,20 +10,26 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
 {
     private const int PageSize = 20;
 
-    public async Task<ApiResponse<Ticket>> GetByIdAsync(Guid id)
+    public async Task<ApiResponse<GetTicketByIdResponse>> GetByIdAsync(Guid id)
     {
         var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == id);
         if (ticket is null)
         {
-            return TicketResponses.NotFound<Ticket>();
+            return TicketResponses.NotFound<GetTicketByIdResponse>();
         }
 
-        return new ApiResponse<Ticket>
+        return new ApiResponse<GetTicketByIdResponse>
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
             Message = "Ticket retrieved successfully",
-            Data = ticket,
+            Data = new GetTicketByIdResponse
+            {
+                Id = ticket.Id,
+                TicketDateTime = ticket.TicketDateTime,
+                NumberOfBags = ticket.NumberOfBags,
+                TotalPrice = ticket.TotalPrice
+            },
             Links = new Dictionary<string, string>
             {
                 { "self", "/ticket?id=" + id },

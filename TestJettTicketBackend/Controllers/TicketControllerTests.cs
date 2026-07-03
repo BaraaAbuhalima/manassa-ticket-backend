@@ -31,7 +31,7 @@ public class TicketControllerTests
     public async Task GetById_ReturnsServiceStatusCodeAndBody()
     {
         var id = Guid.NewGuid();
-        var response = new ApiResponse<Ticket> { StatusCode = 200, Success = true };
+        var response = new ApiResponse<GetTicketByIdResponse> { StatusCode = 200, Success = true };
         _reader.Setup(s => s.GetByIdAsync(id)).ReturnsAsync(response);
 
         var result = await _sut.GetById(id);
@@ -46,7 +46,7 @@ public class TicketControllerTests
     public async Task GetById_PropagatesNotFoundStatusCode()
     {
         var id = Guid.NewGuid();
-        var response = new ApiResponse<Ticket> { StatusCode = 404, Success = false };
+        var response = new ApiResponse<GetTicketByIdResponse> { StatusCode = 404, Success = false };
         _reader.Setup(s => s.GetByIdAsync(id)).ReturnsAsync(response);
 
         var result = await _sut.GetById(id);

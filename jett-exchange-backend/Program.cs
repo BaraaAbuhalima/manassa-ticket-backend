@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using jett_exchange_backend.Common;
@@ -18,6 +19,17 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+const string FrontendCorsPolicy = "FrontendCorsPolicy";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // Add services to the container.
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -37,11 +49,11 @@ builder.Services.Configure<StripeOptions>(
     builder.Configuration.GetSection("Stripe"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JettTickets"));
-builder.Services.AddScoped<ITicketDeleteTokenService,TicketDeleteTokenService>();
-builder.Services.AddScoped<ITicketReader,TicketReader>();
-builder.Services.AddScoped<ITicketDeleter,TicketDeleter>();
-builder.Services.AddScoped<ITicketPoster,TicketPoster>();
-builder.Services.AddScoped<ITicketPurchaseService,TicketPurchaseService>();
+builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
+builder.Services.AddScoped<ITicketReader, TicketReader>();
+builder.Services.AddScoped<ITicketDeleter, TicketDeleter>();
+builder.Services.AddScoped<ITicketPoster, TicketPoster>();
+builder.Services.AddScoped<ITicketPurchaseService, TicketPurchaseService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 builder.Services.AddHttpClient<ITicketVerifier, JettTicketVerifier>();
@@ -53,7 +65,12 @@ builder.Services.AddScoped<IEmailMessagePublisher, RabbitMqEmailMessagePublisher
 builder.Services.AddScoped<ITicketAvailableNotifier, TicketAvailableNotifier>();
 builder.Services.AddHostedService<TicketAvailableConsumer>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter());
+    });
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -87,6 +104,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(FrontendCorsPolicy);
 app.MapControllers();
 
 app.Run();
