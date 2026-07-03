@@ -16,6 +16,7 @@ using jett_exchange_backend.Services.TicketVerification;
 using jett_exchange_backend.Services.Tickets;
 using jett_exchange_backend.Validators;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,7 +52,16 @@ builder.Services.Configure<StripeOptions>(
 builder.Services.Configure<ContactOptions>(
     builder.Configuration.GetSection("Contact"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
-builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JettTickets"));
+
+// SQLite's ":memory:" database only lives as long as a connection to it stays open, and
+// "cache=shared" lets every scoped DbContext open its own connection (safe under concurrent
+// requests) while still seeing the same in-memory data. This keep-alive connection is what
+// keeps the shared in-memory database from being torn down between requests.
+const string SqliteInMemoryConnectionString = "Data Source=file:JettTickets?mode=memory&cache=shared";
+var keepAliveConnection = new SqliteConnection(SqliteInMemoryConnectionString);
+keepAliveConnection.Open();
+builder.Services.AddSingleton(keepAliveConnection);
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(SqliteInMemoryConnectionString));
 builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
 builder.Services.AddScoped<ITicketReader, TicketReader>();
 builder.Services.AddScoped<ITicketDeleter, TicketDeleter>();
@@ -98,6 +108,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
