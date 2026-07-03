@@ -10,6 +10,7 @@ using jett_exchange_backend.Models;
 using jett_exchange_backend.Services.FileStorage;
 using jett_exchange_backend.Services.TicketExtraction;
 using jett_exchange_backend.Services.TicketVerification;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace jett_exchange_backend.Services.Tickets;
@@ -34,6 +35,12 @@ public class TicketPoster(
         }
 
         var (ticketId, verifiedTicket) = extracted.Value;
+
+        if (await dbContext.Tickets.AnyAsync(t => t.TicketId == ticketId))
+        {
+            return TicketAlreadyListedResponse();
+        }
+
         var ticket = await SaveTicketAsync(request, ticketId, verifiedTicket);
 
         await PublishTicketAvailableAsync(ticket);
@@ -144,6 +151,21 @@ public class TicketPoster(
             },
             _ => throw new ArgumentOutOfRangeException(
                 nameof(request), request.PaymentMethod, "Unsupported payment method")
+        };
+    }
+
+    private static ApiResponse<PostTicketResponse> TicketAlreadyListedResponse()
+    {
+        return new ApiResponse<PostTicketResponse>
+        {
+            StatusCode = StatusCodes.Status409Conflict,
+            Success = false,
+            Message = "This ticket has already been listed for sale",
+            Errors = ["This ticket has already been listed for sale"],
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" }
+            }
         };
     }
 
