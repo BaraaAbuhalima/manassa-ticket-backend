@@ -93,6 +93,7 @@ public class TicketPoster(
             SellerEmail = request.SellerEmail,
             SellerPhone = request.SellerPhone,
             PaymentMethod = request.PaymentMethod,
+            TicketDateTime = verifiedTicket.TicketDateTime,
             PaymentInfo = BuildPaymentInfo(request),
             Pin = pinGenerator.Generate(16),
             Status = TicketSellStatus.ForSale,

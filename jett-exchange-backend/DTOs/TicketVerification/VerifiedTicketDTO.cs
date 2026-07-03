@@ -31,8 +31,11 @@ public class VerifiedTicketDTO
 
         var date = DateTime.Parse(response.Details.Data.Booking.Travel_date);
         var time = TimeSpan.Parse(response.Details.Data.Booking.Travel_time_from);
+        Console.WriteLine(date);
+        Console.WriteLine(time);
 
         TicketDateTime = date.Date.Add(time);
+        Console.WriteLine(TicketDateTime);
 
         Price = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture);
 
