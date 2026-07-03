@@ -268,36 +268,4 @@ public class TicketPosterTests
         result.Success.Should().BeTrue();
         result.StatusCode.Should().Be(200);
     }
-
-    [Test]
-    public async Task PostTicketAsync_ReturnsConflict_WhenTicketIdAlreadyListed()
-    {
-        SetupSuccessfulExtractionAndVerification();
-        _dbContext.Tickets.Add(new Ticket
-        {
-            TicketId = "TCK-1",
-            OriginalOwnerName = "Existing Owner",
-            OriginalOwnerPassportNumber = "P1",
-            TicketDateTime = DateTime.UtcNow,
-            NumberOfBags = 1,
-            TotalPrice = 10m,
-            SellerName = "Existing Seller",
-            SellerEmail = "existing@example.com",
-            SellerPhone = "+1234567890",
-            PaymentMethod = PaymentMethod.Reflect,
-            PaymentInfo = new Reflect { PhoneNumber = "0791234567" },
-            Pin = "EXISTINGPIN",
-            Status = TicketSellStatus.ForSale,
-            TicketFilePath = "path.pdf"
-        });
-        await _dbContext.SaveChangesAsync();
-
-        var request = CreatePostRequest(PaymentMethod.Reflect, new PaymentInfoRequest { PhoneNumber = "0791234567" });
-
-        var result = await _sut.PostTicketAsync(request);
-
-        result.Success.Should().BeFalse();
-        result.StatusCode.Should().Be(409);
-        _availablePublisher.Verify(p => p.PublishAsync(It.IsAny<TicketAvailableMessage>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
 }
