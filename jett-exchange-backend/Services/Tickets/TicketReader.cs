@@ -32,25 +32,32 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
         };
     }
 
-    public async Task<ApiResponse<Ticket>> GetByPinAsync(string pin)
+    public async Task<ApiResponse<GetTicketByPinResponse>> GetByPinAsync(string pin)
     {
         var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Pin == pin);
         if (ticket is null)
         {
-            return TicketResponses.NotFound<Ticket>();
+            return TicketResponses.NotFound<GetTicketByPinResponse>();
         }
 
         var deleteToken = deleteTokenService.GenerateToken(ticket.Id);
 
-        return new ApiResponse<Ticket>
+        return new ApiResponse<GetTicketByPinResponse>
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
             Message = "Ticket retrieved successfully",
-            Data = ticket,
+            Data = new GetTicketByPinResponse
+            {
+                Id = ticket.Id,
+                TicketDateTime = ticket.TicketDateTime,
+                NumberOfBags = ticket.NumberOfBags,
+                TotalPrice = ticket.TotalPrice,
+                DeleteToken = deleteToken
+            },
             Links = new Dictionary<string, string>
             {
-                { "delete", "/api/ticket/" + deleteToken }
+                { "delete", "/api/ticket" }
             }
         };
     }

@@ -37,11 +37,21 @@ public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketD
         return StatusCode(response.StatusCode, response);
     }
 
-    [HttpDelete("{token}")]
-    public async Task<IActionResult> DeleteByToken(string token)
+    [HttpDelete("")]
+    public async Task<IActionResult> DeleteByToken()
     {
-        var response = await ticketDeleter.DeleteByTokenAsync(token);
+        var response = await ticketDeleter.DeleteByTokenAsync(ExtractBearerToken());
         return StatusCode(response.StatusCode, response);
+    }
+
+    private string ExtractBearerToken()
+    {
+        string? header = Request.Headers.Authorization;
+        const string prefix = "Bearer ";
+
+        return header is not null && header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? header[prefix.Length..]
+            : string.Empty;
     }
 
     [HttpPost("")]

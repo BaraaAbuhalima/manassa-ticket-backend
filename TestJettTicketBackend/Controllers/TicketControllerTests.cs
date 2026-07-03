@@ -5,6 +5,7 @@ using jett_exchange_backend.DTOs.Responses;
 using jett_exchange_backend.Models;
 using jett_exchange_backend.Services.Tickets;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using TestJettTicketBackend.TestHelpers;
@@ -24,8 +25,14 @@ public class TicketControllerTests
         _reader = new Mock<ITicketReader>();
         _deleter = new Mock<ITicketDeleter>();
         _poster = new Mock<ITicketPoster>();
-        _sut = new TicketController(_reader.Object, _deleter.Object, _poster.Object);
+        _sut = new TicketController(_reader.Object, _deleter.Object, _poster.Object)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
     }
+
+    private void SetAuthorizationHeader(string value) =>
+        _sut.ControllerContext.HttpContext.Request.Headers.Authorization = value;
 
     [Test]
     public async Task GetById_ReturnsServiceStatusCodeAndBody()
@@ -57,7 +64,7 @@ public class TicketControllerTests
     [Test]
     public async Task GetByPin_ReturnsServiceStatusCodeAndBody()
     {
-        var response = new ApiResponse<Ticket> { StatusCode = 200, Success = true };
+        var response = new ApiResponse<GetTicketByPinResponse> { StatusCode = 200, Success = true };
         _reader.Setup(s => s.GetByPinAsync("ABC123")).ReturnsAsync(response);
 
         var result = await _sut.GetByPin("ABC123");
@@ -127,10 +134,11 @@ public class TicketControllerTests
     [Test]
     public async Task DeleteByToken_ReturnsServiceStatusCodeAndBody()
     {
+        SetAuthorizationHeader("Bearer valid-token");
         var response = new ApiResponse<string> { StatusCode = 200, Success = true };
         _deleter.Setup(s => s.DeleteByTokenAsync("valid-token")).ReturnsAsync(response);
 
-        var result = await _sut.DeleteByToken("valid-token");
+        var result = await _sut.DeleteByToken();
 
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(200);
@@ -141,10 +149,11 @@ public class TicketControllerTests
     [Test]
     public async Task DeleteByToken_PropagatesNotFoundStatusCode()
     {
+        SetAuthorizationHeader("Bearer missing-ticket-token");
         var response = new ApiResponse<string> { StatusCode = 404, Success = false };
         _deleter.Setup(s => s.DeleteByTokenAsync("missing-ticket-token")).ReturnsAsync(response);
 
-        var result = await _sut.DeleteByToken("missing-ticket-token");
+        var result = await _sut.DeleteByToken();
 
         result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(404);
     }
@@ -152,12 +161,48 @@ public class TicketControllerTests
     [Test]
     public async Task DeleteByToken_PropagatesUnauthorizedStatusCode_ForInvalidToken()
     {
+        SetAuthorizationHeader("Bearer bad-token");
         var response = new ApiResponse<string> { StatusCode = 401, Success = false };
         _deleter.Setup(s => s.DeleteByTokenAsync("bad-token")).ReturnsAsync(response);
 
-        var result = await _sut.DeleteByToken("bad-token");
+        var result = await _sut.DeleteByToken();
 
         result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(401);
+    }
+
+    [Test]
+    public async Task DeleteByToken_ReadsTokenFromAuthorizationHeader_CaseInsensitiveBearerPrefix()
+    {
+        SetAuthorizationHeader("bearer case-insensitive-token");
+        var response = new ApiResponse<string> { StatusCode = 200, Success = true };
+        _deleter.Setup(s => s.DeleteByTokenAsync("case-insensitive-token")).ReturnsAsync(response);
+
+        await _sut.DeleteByToken();
+
+        _deleter.Verify(s => s.DeleteByTokenAsync("case-insensitive-token"), Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteByToken_PassesEmptyToken_WhenAuthorizationHeaderMissing()
+    {
+        var response = new ApiResponse<string> { StatusCode = 401, Success = false };
+        _deleter.Setup(s => s.DeleteByTokenAsync(string.Empty)).ReturnsAsync(response);
+
+        await _sut.DeleteByToken();
+
+        _deleter.Verify(s => s.DeleteByTokenAsync(string.Empty), Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteByToken_PassesEmptyToken_WhenAuthorizationHeaderMissingBearerPrefix()
+    {
+        SetAuthorizationHeader("just-the-token-no-prefix");
+        var response = new ApiResponse<string> { StatusCode = 401, Success = false };
+        _deleter.Setup(s => s.DeleteByTokenAsync(string.Empty)).ReturnsAsync(response);
+
+        await _sut.DeleteByToken();
+
+        _deleter.Verify(s => s.DeleteByTokenAsync(string.Empty), Times.Once);
     }
 
     [Test]

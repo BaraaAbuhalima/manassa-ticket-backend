@@ -80,7 +80,7 @@ public class TicketReaderTests
         var result = await _sut.GetByPinAsync("ABC123");
 
         result.Success.Should().BeTrue();
-        result.Data!.Pin.Should().Be("ABC123");
+        result.Data!.Id.Should().Be(ticket.Id);
     }
 
     [Test]
@@ -102,10 +102,8 @@ public class TicketReaderTests
         var result = await _sut.GetByPinAsync("ABC123");
 
         result.Links.Should().ContainKey("delete");
-        var deleteLink = result.Links!["delete"];
-        var token = deleteLink.Replace("/api/ticket/", string.Empty);
-
-        _deleteTokenService.ValidateAndGetTicketId(token).Should().Be(ticket.Id);
+        result.Links!["delete"].Should().Be("/api/ticket");
+        _deleteTokenService.ValidateAndGetTicketId(result.Data!.DeleteToken).Should().Be(ticket.Id);
     }
 
     [Test]
