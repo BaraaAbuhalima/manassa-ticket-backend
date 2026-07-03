@@ -3,6 +3,7 @@ using System.Text;
 using jett_exchange_backend.Configuration;
 using jett_exchange_backend.Services.TicketVerification;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TestJettTicketBackend.TestHelpers;
 
@@ -62,7 +63,7 @@ public class JettTicketVerifierTests
         var handler = new FakeHttpMessageHandler(respond);
         handlerRef = handler;
         var client = new HttpClient(handler);
-        return new JettTicketVerifier(client, options);
+        return new JettTicketVerifier(client, options, NullLogger<JettTicketVerifier>.Instance);
     }
 
     private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json) => new(statusCode)
@@ -110,15 +111,22 @@ public class JettTicketVerifierTests
     }
 
     [Test]
-    public void VerifyTicketAsync_Throws_WhenApiReturnsNonSuccessStatusCode()
+    public async Task VerifyTicketAsync_ReturnsUnsuccessful_WhenApiReturnsNonSuccessStatusCode()
     {
-        // Documents current behavior: a non-2xx response (e.g. 403 from a rejected/
-        // invalid barcode) is not caught, so it surfaces as an unhandled
-        // HttpRequestException rather than VerifiedTicketDTO { Success = false }.
         var sut = CreateSut(_ => new HttpResponseMessage(HttpStatusCode.Forbidden), out _);
 
-        var act = async () => await sut.VerifyTicketAsync("BC123");
+        var result = await sut.VerifyTicketAsync("BC123");
 
-        act.Should().ThrowAsync<HttpRequestException>();
+        result.Success.Should().BeFalse();
+    }
+
+    [Test]
+    public async Task VerifyTicketAsync_ReturnsUnsuccessful_WhenResponseBodyIsMalformedJson()
+    {
+        var sut = CreateSut(_ => JsonResponse(HttpStatusCode.OK, "{not-valid-json"), out _);
+
+        var result = await sut.VerifyTicketAsync("BC123");
+
+        result.Success.Should().BeFalse();
     }
 }

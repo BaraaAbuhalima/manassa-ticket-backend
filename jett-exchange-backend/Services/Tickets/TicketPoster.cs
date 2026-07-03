@@ -27,14 +27,22 @@ public class TicketPoster(
 {
     public async Task<ApiResponse<PostTicketResponse>> PostTicketAsync(PostTicketRequest request)
     {
-        var extracted = await ExtractAndVerifyAsync(request.File);
-        if (extracted is null)
+        var tempPath = await storage.SavePdfAsync(request.File, options.Value.TempTicketUploadPath);
+        var ticketInfo = await dataExtractor.ExtractTicketAsync(tempPath);
+        await storage.DeleteAsync(tempPath);
+
+        if (!ticketInfo.Success)
         {
             return PostTicketFailedResponse();
         }
 
-        var (ticketId, verifiedTicket) = extracted.Value;
-        var ticket = await SaveTicketAsync(request, ticketId, verifiedTicket);
+        var verifiedTicket = await ticketVerifier.VerifyTicketAsync(ticketInfo.BarCode);
+        if (!verifiedTicket.Success || verifiedTicket.BarCode != ticketInfo.BarCode)
+        {
+            return VerificationFailedResponse();
+        }
+
+        var ticket = await SaveTicketAsync(request, ticketInfo.TicketId, verifiedTicket);
 
         await PublishTicketAvailableAsync(ticket);
 
@@ -56,26 +64,6 @@ public class TicketPoster(
                 { "home", "/home" },
             }
         };
-    }
-
-    private async Task<(string TicketId, VerifiedTicketDTO Verified)?> ExtractAndVerifyAsync(IFormFile file)
-    {
-        var tempPath = await storage.SavePdfAsync(file, options.Value.TempTicketUploadPath);
-        var ticketInfo = await dataExtractor.ExtractTicketAsync(tempPath);
-        await storage.DeleteAsync(tempPath);
-
-        if (!ticketInfo.Success)
-        {
-            return null;
-        }
-
-        var verifiedTicket = await ticketVerifier.VerifyTicketAsync(ticketInfo.BarCode);
-        if (!verifiedTicket.Success || verifiedTicket.BarCode != ticketInfo.BarCode)
-        {
-            return null;
-        }
-
-        return (ticketInfo.TicketId, verifiedTicket);
     }
 
     private async Task<Ticket> SaveTicketAsync(PostTicketRequest request, string ticketId, VerifiedTicketDTO verifiedTicket)
@@ -163,4 +151,19 @@ public class TicketPoster(
         };
     }
 
+    private static ApiResponse<PostTicketResponse> VerificationFailedResponse()
+    {
+        return new ApiResponse<PostTicketResponse>
+        {
+            StatusCode = StatusCodes.Status500InternalServerError,
+            Success = false,
+            Message = "Ticket verification failed",
+            Errors = ["Ticket verification failed"],
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" },
+                { "repost-ticket", "ticket/post" },
+            }
+        };
+    }
 }

@@ -197,6 +197,7 @@ public class TicketPosterTests
 
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(500);
+        result.Message.Should().Be("Ticket verification failed");
     }
 
     [Test]
@@ -213,6 +214,7 @@ public class TicketPosterTests
 
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(500);
+        result.Message.Should().Be("Ticket verification failed");
     }
 
     [Test]
