@@ -5,6 +5,7 @@ using jett_exchange_backend.Configuration;
 using jett_exchange_backend.Data;
 using jett_exchange_backend.Helpers;
 using jett_exchange_backend.Messaging;
+using jett_exchange_backend.Services.Contact;
 using jett_exchange_backend.Services.FileStorage;
 using jett_exchange_backend.Services.Notifications;
 using jett_exchange_backend.Services.Payments;
@@ -35,6 +36,8 @@ builder.Services.Configure<RabbitMqOptions>(
     builder.Configuration.GetSection("RabbitMq"));
 builder.Services.Configure<StripeOptions>(
     builder.Configuration.GetSection("Stripe"));
+builder.Services.Configure<ContactOptions>(
+    builder.Configuration.GetSection("Contact"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JettTickets"));
 builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
@@ -51,6 +54,7 @@ builder.Services.AddSingleton<RabbitMqConnectionProvider>();
 builder.Services.AddScoped<ITicketAvailablePublisher, RabbitMqTicketAvailablePublisher>();
 builder.Services.AddScoped<IEmailMessagePublisher, RabbitMqEmailMessagePublisher>();
 builder.Services.AddScoped<ITicketAvailableNotifier, TicketAvailableNotifier>();
+builder.Services.AddScoped<IContactUsService, ContactUsService>();
 builder.Services.AddHostedService<TicketAvailableConsumer>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
