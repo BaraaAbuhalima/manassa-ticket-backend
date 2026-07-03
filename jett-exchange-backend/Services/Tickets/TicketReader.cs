@@ -1,5 +1,6 @@
 using jett_exchange_backend.Common;
 using jett_exchange_backend.Data;
+using jett_exchange_backend.DTOs.Responses;
 using jett_exchange_backend.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,20 +10,20 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
 {
     private const int PageSize = 20;
 
-    public async Task<ApiResponse<Ticket>> GetByIdAsync(Guid id)
+    public async Task<ApiResponse<GetTicketByIdResponse>> GetByIdAsync(Guid id)
     {
         var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == id);
         if (ticket is null)
         {
-            return TicketResponses.NotFound<Ticket>();
+            return TicketResponses.NotFound<GetTicketByIdResponse>();
         }
 
-        return new ApiResponse<Ticket>
+        return new ApiResponse<GetTicketByIdResponse>
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
             Message = "Ticket retrieved successfully",
-            Data = ticket,
+            Data = ToResponse(ticket),
             Links = new Dictionary<string, string>
             {
                 { "self", "/ticket?id=" + id },
@@ -54,16 +55,16 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
         };
     }
 
-    public async Task<ApiResponse<List<Ticket>>> GetForDateAsync(DateOnly date, int page)
+    public async Task<ApiResponse<List<GetTicketByIdResponse>>> GetForDateAsync(DateOnly date, int page)
     {
         return await GetPagedByDateRangeAsync(date, date, page);
     }
 
-    public async Task<ApiResponse<List<Ticket>>> GetForDateRangeAsync(DateOnly startDate, DateOnly endDate, int page)
+    public async Task<ApiResponse<List<GetTicketByIdResponse>>> GetForDateRangeAsync(DateOnly startDate, DateOnly endDate, int page)
     {
         if (startDate > endDate)
         {
-            return new ApiResponse<List<Ticket>>
+            return new ApiResponse<List<GetTicketByIdResponse>>
             {
                 StatusCode = StatusCodes.Status400BadRequest,
                 Success = false,
@@ -75,7 +76,7 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
         return await GetPagedByDateRangeAsync(startDate, endDate, page);
     }
 
-    private async Task<ApiResponse<List<Ticket>>> GetPagedByDateRangeAsync(DateOnly startDate, DateOnly endDate, int page)
+    private async Task<ApiResponse<List<GetTicketByIdResponse>>> GetPagedByDateRangeAsync(DateOnly startDate, DateOnly endDate, int page)
     {
         page = page < 1 ? 1 : page;
 
@@ -91,12 +92,12 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
         var totalCount = await query.CountAsync();
         var tickets = await query.Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
 
-        return new ApiResponse<List<Ticket>>
+        return new ApiResponse<List<GetTicketByIdResponse>>
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
             Message = "Tickets retrieved successfully",
-            Data = tickets,
+            Data = tickets.Select(ToResponse).ToList(),
             Meta = new MetaData
             {
                 Timestamp = DateTime.UtcNow,
@@ -106,4 +107,12 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
             }
         };
     }
+
+    private static GetTicketByIdResponse ToResponse(Ticket ticket) => new()
+    {
+        Id = ticket.Id,
+        TicketDateTime = ticket.TicketDateTime,
+        NumberOfBags = ticket.NumberOfBags,
+        TotalPrice = ticket.TotalPrice
+    };
 }

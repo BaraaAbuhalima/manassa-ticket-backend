@@ -26,4 +26,3 @@ public class PaymentController(ITicketPurchaseService ticketPurchaseService) : C
         return StatusCode(response.StatusCode, response);
     }
 }
- 

@@ -37,11 +37,11 @@ builder.Services.Configure<StripeOptions>(
     builder.Configuration.GetSection("Stripe"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JettTickets"));
-builder.Services.AddScoped<ITicketDeleteTokenService,TicketDeleteTokenService>();
-builder.Services.AddScoped<ITicketReader,TicketReader>();
-builder.Services.AddScoped<ITicketDeleter,TicketDeleter>();
-builder.Services.AddScoped<ITicketPoster,TicketPoster>();
-builder.Services.AddScoped<ITicketPurchaseService,TicketPurchaseService>();
+builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
+builder.Services.AddScoped<ITicketReader, TicketReader>();
+builder.Services.AddScoped<ITicketDeleter, TicketDeleter>();
+builder.Services.AddScoped<ITicketPoster, TicketPoster>();
+builder.Services.AddScoped<ITicketPurchaseService, TicketPurchaseService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 builder.Services.AddHttpClient<ITicketVerifier, JettTicketVerifier>();

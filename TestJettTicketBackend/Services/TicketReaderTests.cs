@@ -121,7 +121,7 @@ public class TicketReaderTests
         var result = await _sut.GetForDateAsync(date, page: 1);
 
         result.Success.Should().BeTrue();
-        result.Data.Should().ContainSingle(t => t.Pin == "ONDATE");
+        result.Data.Should().ContainSingle(t => t.Id == onDate.Id);
         result.Meta!.TotalCount.Should().Be(1);
     }
 
@@ -138,7 +138,7 @@ public class TicketReaderTests
 
         var result = await _sut.GetForDateAsync(date, page: 1);
 
-        result.Data.Should().ContainSingle(t => t.Pin == "FORSALE");
+        result.Data.Should().ContainSingle(t => t.Id == forSale.Id);
     }
 
     [Test]
@@ -162,7 +162,7 @@ public class TicketReaderTests
         page2.Data.Should().HaveCount(5);
         page2.Meta!.Page.Should().Be(2);
 
-        page1.Data!.Select(t => t.Pin).Should().NotIntersectWith(page2.Data!.Select(t => t.Pin));
+        page1.Data!.Select(t => t.Id).Should().NotIntersectWith(page2.Data!.Select(t => t.Id));
     }
 
     [Test]
@@ -195,7 +195,7 @@ public class TicketReaderTests
         var result = await _sut.GetForDateRangeAsync(start, end, page: 1);
 
         result.Success.Should().BeTrue();
-        result.Data!.Select(t => t.Pin).Should().BeEquivalentTo(["ON_START", "INSIDE", "ON_END"]);
+        result.Data!.Select(t => t.Id).Should().BeEquivalentTo([onStart.Id, inside.Id, onEnd.Id]);
     }
 
     [Test]

@@ -31,7 +31,7 @@ public class TicketControllerTests
     public async Task GetById_ReturnsServiceStatusCodeAndBody()
     {
         var id = Guid.NewGuid();
-        var response = new ApiResponse<Ticket> { StatusCode = 200, Success = true };
+        var response = new ApiResponse<GetTicketByIdResponse> { StatusCode = 200, Success = true };
         _reader.Setup(s => s.GetByIdAsync(id)).ReturnsAsync(response);
 
         var result = await _sut.GetById(id);
@@ -46,7 +46,7 @@ public class TicketControllerTests
     public async Task GetById_PropagatesNotFoundStatusCode()
     {
         var id = Guid.NewGuid();
-        var response = new ApiResponse<Ticket> { StatusCode = 404, Success = false };
+        var response = new ApiResponse<GetTicketByIdResponse> { StatusCode = 404, Success = false };
         _reader.Setup(s => s.GetByIdAsync(id)).ReturnsAsync(response);
 
         var result = await _sut.GetById(id);
@@ -72,7 +72,7 @@ public class TicketControllerTests
     public async Task GetForDate_ReturnsServiceStatusCodeAndBody()
     {
         var date = new DateOnly(2026, 7, 5);
-        var response = new ApiResponse<List<Ticket>> { StatusCode = 200, Success = true, Data = [] };
+        var response = new ApiResponse<List<GetTicketByIdResponse>> { StatusCode = 200, Success = true, Data = [] };
         _reader.Setup(s => s.GetForDateAsync(date, 1)).ReturnsAsync(response);
 
         var result = await _sut.GetForDate(date);
@@ -87,7 +87,7 @@ public class TicketControllerTests
     public async Task GetForDate_PassesRequestedPage()
     {
         var date = new DateOnly(2026, 7, 5);
-        var response = new ApiResponse<List<Ticket>> { StatusCode = 200, Success = true, Data = [] };
+        var response = new ApiResponse<List<GetTicketByIdResponse>> { StatusCode = 200, Success = true, Data = [] };
         _reader.Setup(s => s.GetForDateAsync(date, 3)).ReturnsAsync(response);
 
         await _sut.GetForDate(date, page: 3);
@@ -100,7 +100,7 @@ public class TicketControllerTests
     {
         var start = new DateOnly(2026, 7, 1);
         var end = new DateOnly(2026, 7, 10);
-        var response = new ApiResponse<List<Ticket>> { StatusCode = 200, Success = true, Data = [] };
+        var response = new ApiResponse<List<GetTicketByIdResponse>> { StatusCode = 200, Success = true, Data = [] };
         _reader.Setup(s => s.GetForDateRangeAsync(start, end, 1)).ReturnsAsync(response);
 
         var result = await _sut.GetForDateRange(start, end);
@@ -116,7 +116,7 @@ public class TicketControllerTests
     {
         var start = new DateOnly(2026, 7, 10);
         var end = new DateOnly(2026, 7, 1);
-        var response = new ApiResponse<List<Ticket>> { StatusCode = 400, Success = false };
+        var response = new ApiResponse<List<GetTicketByIdResponse>> { StatusCode = 400, Success = false };
         _reader.Setup(s => s.GetForDateRangeAsync(start, end, 1)).ReturnsAsync(response);
 
         var result = await _sut.GetForDateRange(start, end);
