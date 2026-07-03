@@ -76,6 +76,40 @@ public class TicketControllerTests
     }
 
     [Test]
+    public async Task GetByPin_SetsDeleteTokenResponseHeader_WhenTicketFound()
+    {
+        var response = new ApiResponse<GetTicketByPinResponse>
+        {
+            StatusCode = 200,
+            Success = true,
+            Data = new GetTicketByPinResponse
+            {
+                Id = Guid.NewGuid(),
+                TicketDateTime = DateTime.UtcNow,
+                NumberOfBags = 1,
+                TotalPrice = 10m,
+                DeleteToken = "the-delete-jwt"
+            }
+        };
+        _reader.Setup(s => s.GetByPinAsync("ABC123")).ReturnsAsync(response);
+
+        await _sut.GetByPin("ABC123");
+
+        _sut.Response.Headers["X-Delete-Token"].ToString().Should().Be("the-delete-jwt");
+    }
+
+    [Test]
+    public async Task GetByPin_DoesNotSetDeleteTokenResponseHeader_WhenTicketNotFound()
+    {
+        var response = new ApiResponse<GetTicketByPinResponse> { StatusCode = 404, Success = false };
+        _reader.Setup(s => s.GetByPinAsync("missing")).ReturnsAsync(response);
+
+        await _sut.GetByPin("missing");
+
+        _sut.Response.Headers.Should().NotContainKey("X-Delete-Token");
+    }
+
+    [Test]
     public async Task GetForDate_ReturnsServiceStatusCodeAndBody()
     {
         var date = new DateOnly(2026, 7, 5);

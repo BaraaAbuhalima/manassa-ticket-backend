@@ -20,6 +20,11 @@ public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketD
     public async Task<IActionResult> GetByPin(string pin)
     {
         var response = await ticketReader.GetByPinAsync(pin);
+        if (response.Data is not null)
+        {
+            Response.Headers["X-Delete-Token"] = response.Data.DeleteToken;
+        }
+
         return StatusCode(response.StatusCode, response);
     }
 
