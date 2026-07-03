@@ -1,0 +1,6 @@
+/noconfig
+/langversion:latest
+/nullable:enable
+/target:exe
+/out:
+tmpbuild\jett-exchange-backend.dll

@@ -50,4 +50,6 @@ public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketD
         var response = await ticketPoster.PostTicketAsync(request);
         return StatusCode(response.StatusCode, response);
     }
+    
+    
 }
