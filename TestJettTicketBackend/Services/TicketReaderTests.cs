@@ -9,15 +9,13 @@ namespace TestJettTicketBackend.Services;
 public class TicketReaderTests
 {
     private AppDbContext _dbContext = null!;
-    private ITicketDeleteTokenService _deleteTokenService = null!;
     private TicketReader _sut = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContext = InMemoryDbContextFactory.Create();
-        _deleteTokenService = TestTicketDeleteTokenService.Create();
-        _sut = new TicketReader(_dbContext, _deleteTokenService);
+        _sut = new TicketReader(_dbContext);
     }
 
     [TearDown]
@@ -34,6 +32,7 @@ public class TicketReaderTests
             TicketDateTime = ticketDateTime ?? DateTime.UtcNow,
             NumberOfBags = 1,
             TotalPrice = 10m,
+            OriginalPrice = 10m,
             SellerName = "Seller",
             SellerEmail = "seller@example.com",
             SellerPhone = "+1234567890",
@@ -81,6 +80,7 @@ public class TicketReaderTests
 
         result.Success.Should().BeTrue();
         result.Data!.Id.Should().Be(ticket.Id);
+        result.Data!.Status.Should().Be(ticket.Status);
     }
 
     [Test]
@@ -93,7 +93,7 @@ public class TicketReaderTests
     }
 
     [Test]
-    public async Task GetByPinAsync_IncludesDeleteLink_WithValidTokenForTicket()
+    public async Task GetByPinAsync_IncludesDeleteLink()
     {
         var ticket = CreateTicket(pin: "ABC123");
         _dbContext.Tickets.Add(ticket);
@@ -103,7 +103,62 @@ public class TicketReaderTests
 
         result.Links.Should().ContainKey("delete");
         result.Links!["delete"].Should().Be("/api/ticket");
-        _deleteTokenService.ValidateAndGetTicketId(result.Data!.DeleteToken).Should().Be(ticket.Id);
+    }
+
+    [Test]
+    public async Task GetByPinAsync_IncludesRepublishLink()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123");
+
+        result.Links.Should().ContainKey("republish");
+        result.Links!["republish"].Should().Be("/api/ticket/republish");
+    }
+
+    [Test]
+    public async Task GetByPinAsync_IncludesModifyLink()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123");
+
+        result.Links.Should().ContainKey("modify");
+        result.Links!["modify"].Should().Be("/api/ticket");
+    }
+
+    [Test]
+    public async Task GetByPinAsync_IncludesSellerAndPaymentDetails()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123");
+
+        result.Data!.SellerEmail.Should().Be(ticket.SellerEmail);
+        result.Data!.SellerPhone.Should().Be(ticket.SellerPhone);
+        result.Data!.PaymentMethod.Should().Be(ticket.PaymentMethod);
+        result.Data!.TotalPrice.Should().Be(ticket.TotalPrice);
+        result.Data!.PaymentInfo.Should().BeOfType<Reflect>();
+        ((Reflect)result.Data!.PaymentInfo).PhoneNumber.Should().Be("0791234567");
+    }
+
+    [Test]
+    public async Task GetByPinAsync_IncludesSoldAt_WhenTicketSold()
+    {
+        var ticket = CreateTicket(pin: "SOLD-1", status: TicketSellStatus.Sold);
+        ticket.SoldAt = new DateTime(2026, 7, 1, 12, 0, 0, DateTimeKind.Utc);
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("SOLD-1");
+
+        result.Data!.SoldAt.Should().Be(ticket.SoldAt);
     }
 
     [Test]

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Services.Tickets;
 
-public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService deleteTokenService) : ITicketReader
+public class TicketReader(AppDbContext dbContext) : ITicketReader
 {
     private const int PageSize = 20;
 
@@ -40,8 +40,6 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
             return TicketResponses.NotFound<GetTicketByPinResponse>();
         }
 
-        var deleteToken = deleteTokenService.GenerateToken(ticket.Id);
-
         return new ApiResponse<GetTicketByPinResponse>
         {
             StatusCode = StatusCodes.Status200OK,
@@ -53,11 +51,18 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
                 TicketDateTime = ticket.TicketDateTime,
                 NumberOfBags = ticket.NumberOfBags,
                 TotalPrice = ticket.TotalPrice,
-                DeleteToken = deleteToken
+                Status = ticket.Status,
+                SoldAt = ticket.SoldAt,
+                SellerEmail = ticket.SellerEmail,
+                SellerPhone = ticket.SellerPhone,
+                PaymentMethod = ticket.PaymentMethod,
+                PaymentInfo = ticket.PaymentInfo
             },
             Links = new Dictionary<string, string>
             {
-                { "delete", "/api/ticket" }
+                { "delete", "/api/ticket" },
+                { "republish", "/api/ticket/republish" },
+                { "modify", "/api/ticket" }
             }
         };
     }
@@ -76,7 +81,11 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
                 StatusCode = StatusCodes.Status400BadRequest,
                 Success = false,
                 Message = "startDate must not be after endDate",
-                Errors = ["startDate must not be after endDate"]
+                Errors = ["startDate must not be after endDate"],
+                Links = new Dictionary<string, string>
+                {
+                    { "home", "/home" },
+                }
             };
         }
 
@@ -98,6 +107,20 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
 
         var totalCount = await query.CountAsync();
         var tickets = await query.Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+        var totalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
+
+        var links = new Dictionary<string, string>
+        {
+            { "home", "/home" },
+        };
+        if (page > 1)
+        {
+            links["prev"] = BuildRangeLink(startDate, endDate, page - 1);
+        }
+        if (page < totalPages)
+        {
+            links["next"] = BuildRangeLink(startDate, endDate, page + 1);
+        }
 
         return new ApiResponse<List<GetTicketByIdResponse>>
         {
@@ -111,9 +134,13 @@ public class TicketReader(AppDbContext dbContext, ITicketDeleteTokenService dele
                 Page = page,
                 PageSize = PageSize,
                 TotalCount = totalCount
-            }
+            },
+            Links = links
         };
     }
+
+    private static string BuildRangeLink(DateOnly startDate, DateOnly endDate, int page) =>
+        $"/api/ticket/range?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}&page={page}";
 
     private static GetTicketByIdResponse ToResponse(Ticket ticket) => new()
     {

@@ -19,6 +19,7 @@ public class AppDbContextPaymentInfoTests
         OriginalOwnerPassportNumber = "P1",
         NumberOfBags = 1,
         TotalPrice = 10m,
+        OriginalPrice = 10m,
         SellerName = "Seller",
         SellerEmail = "seller@example.com",
         SellerPhone = "+1234567890",

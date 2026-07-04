@@ -26,6 +26,8 @@ public class Ticket
     public required int NumberOfBags { get; set; }
     [Column(TypeName = "decimal(3,2)")]
     public required decimal TotalPrice { get; set; }
+    [Column(TypeName = "decimal(3,2)")]
+    public required decimal OriginalPrice { get; init; }
     [MaxLength(100)]
     public required string SellerName { get; set; }
 
@@ -41,6 +43,7 @@ public class Ticket
     [MaxLength(30)]
     public required string Pin { get; set; }
     public required TicketSellStatus Status { get; set; }
+    public DateTime? SoldAt { get; set; }
     [MaxLength(30)]
     public required string TicketFilePath { get; set; }
 

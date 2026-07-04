@@ -6,7 +6,11 @@ namespace jett_exchange_backend.Controllers;
 
 [ApiController]
 [Route("api/ticket")]
-public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketDeleter, ITicketPoster ticketPoster)
+public class TicketController(
+    ITicketReader ticketReader,
+    ITicketDeleter ticketDeleter,
+    ITicketPoster ticketPoster,
+    ITicketDeleteTokenService deleteTokenService)
     : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -22,7 +26,7 @@ public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketD
         var response = await ticketReader.GetByPinAsync(pin);
         if (response.Data is not null)
         {
-            Response.Headers["X-Delete-Token"] = response.Data.DeleteToken;
+            Response.Headers["X-Delete-Token"] = deleteTokenService.GenerateToken(response.Data.Id);
         }
 
         return StatusCode(response.StatusCode, response);
@@ -46,6 +50,20 @@ public class TicketController(ITicketReader ticketReader, ITicketDeleter ticketD
     public async Task<IActionResult> DeleteByToken()
     {
         var response = await ticketDeleter.DeleteByTokenAsync(ExtractBearerToken());
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("republish")]
+    public async Task<IActionResult> RepublishByToken()
+    {
+        var response = await ticketDeleter.RepublishByTokenAsync(ExtractBearerToken());
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPatch("")]
+    public async Task<IActionResult> ModifyTicket([FromBody] UpdateTicketRequest request)
+    {
+        var response = await ticketDeleter.ModifyTicketByTokenAsync(ExtractBearerToken(), request);
         return StatusCode(response.StatusCode, response);
     }
 

@@ -11,7 +11,7 @@ public class RandomPinGeneratorTests
     public void SetUp() => _sut = new RandomPinGenerator();
 
     [TestCase(1)]
-    [TestCase(16)]
+    [TestCase(12)]
     [TestCase(32)]
     public void Generate_ReturnsStringOfRequestedLength(int length)
     {
@@ -31,7 +31,7 @@ public class RandomPinGeneratorTests
     [Test]
     public void Generate_ProducesDifferentValues_AcrossCalls()
     {
-        var pins = Enumerable.Range(0, 20).Select(_ => _sut.Generate(16)).ToList();
+        var pins = Enumerable.Range(0, 20).Select(_ => _sut.Generate(12)).ToList();
 
         pins.Distinct().Should().HaveCount(pins.Count);
     }

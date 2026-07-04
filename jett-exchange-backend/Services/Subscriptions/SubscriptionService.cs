@@ -32,7 +32,11 @@ public class SubscriptionService(AppDbContext dbContext) : ISubscriptionService
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
-            Message = "Subscribed successfully. You'll receive an email when a ticket becomes available for this date."
+            Message = "Subscribed successfully. You'll receive an email when a ticket becomes available for this date.",
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" },
+            }
         };
     }
 }

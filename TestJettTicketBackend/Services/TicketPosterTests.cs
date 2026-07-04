@@ -165,6 +165,7 @@ public class TicketPosterTests
 
         var saved = GetPersistedTicket(result.Data!.TicketId);
         saved!.TotalPrice.Should().Be(25m);
+        saved.OriginalPrice.Should().Be(25m);
         saved.OriginalOwnerName.Should().Be("Owner");
     }
 
@@ -215,6 +216,40 @@ public class TicketPosterTests
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(500);
         result.Message.Should().Be("Ticket verification failed");
+    }
+
+    [Test]
+    public async Task PostTicketAsync_ReturnsConflict_WhenTicketAlreadyPosted()
+    {
+        SetupSuccessfulExtractionAndVerification();
+        _dbContext.Tickets.Add(new Ticket
+        {
+            TicketId = "TCK-1",
+            OriginalOwnerName = "Owner",
+            OriginalOwnerPassportNumber = "P1",
+            NumberOfBags = 1,
+            TotalPrice = 25m,
+            OriginalPrice = 25m,
+            SellerName = "Seller",
+            SellerEmail = "seller@example.com",
+            SellerPhone = "+1234567890",
+            PaymentMethod = PaymentMethod.Reflect,
+            PaymentInfo = new Reflect { PhoneNumber = "0791234567" },
+            Pin = "EXISTINGPIN",
+            Status = TicketSellStatus.ForSale,
+            TicketFilePath = "existing/path.pdf"
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var request = CreatePostRequest(PaymentMethod.Reflect, new PaymentInfoRequest { PhoneNumber = "0791234567" });
+
+        var result = await _sut.PostTicketAsync(request);
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(409);
+        result.Message.Should().Be("Ticket already posted");
+        _storage.Verify(s => s.SavePdfAsync(It.IsAny<IFormFile>(), "permanent"), Times.Never);
+        _availablePublisher.Verify(p => p.PublishAsync(It.IsAny<TicketAvailableMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]

@@ -10,6 +10,7 @@ using jett_exchange_backend.Models;
 using jett_exchange_backend.Services.FileStorage;
 using jett_exchange_backend.Services.TicketExtraction;
 using jett_exchange_backend.Services.TicketVerification;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace jett_exchange_backend.Services.Tickets;
@@ -40,6 +41,11 @@ public class TicketPoster(
         if (!verifiedTicket.Success || verifiedTicket.BarCode != ticketInfo.BarCode)
         {
             return VerificationFailedResponse();
+        }
+
+        if (await dbContext.Tickets.AnyAsync(t => t.TicketId == ticketInfo.TicketId))
+        {
+            return TicketAlreadyPostedResponse();
         }
 
         var ticket = await SaveTicketAsync(request, ticketInfo.TicketId, verifiedTicket);
@@ -77,13 +83,14 @@ public class TicketPoster(
             OriginalOwnerPassportNumber = verifiedTicket.OriginalOwnerPassportNumber,
             NumberOfBags = verifiedTicket.NumberOfBags,
             TotalPrice = verifiedTicket.TotalPrice,
+            OriginalPrice = verifiedTicket.TotalPrice,
             SellerName = request.SellerName,
             SellerEmail = request.SellerEmail,
             SellerPhone = request.SellerPhone,
             PaymentMethod = request.PaymentMethod,
             TicketDateTime = verifiedTicket.TicketDateTime,
-            PaymentInfo = BuildPaymentInfo(request),
-            Pin = pinGenerator.Generate(16),
+            PaymentInfo = PaymentInfoMapper.Build(request.PaymentMethod, request.PaymentInfoRequest),
+            Pin = pinGenerator.Generate(12),
             Status = TicketSellStatus.ForSale,
             TicketFilePath = permanentPath
         };
@@ -110,29 +117,6 @@ public class TicketPoster(
             // just won't be notified for this listing.
             logger.LogError(ex, "Failed to publish ticket-available message for ticket {TicketId}", ticket.Id);
         }
-    }
-
-    private static PaymentInfo BuildPaymentInfo(PostTicketRequest request)
-    {
-        var paymentInfoRequest = request.PaymentInfoRequest;
-
-        return request.PaymentMethod switch
-        {
-            PaymentMethod.Iban => new BankTransferInfo
-            {
-                BankDetails = paymentInfoRequest.BankDetails!
-            },
-            PaymentMethod.Reflect => new Reflect
-            {
-                PhoneNumber = paymentInfoRequest.PhoneNumber!
-            },
-            PaymentMethod.Phone => new PhoneTransfer
-            {
-                PhoneNumber = paymentInfoRequest.PhoneNumber!
-            },
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(request), request.PaymentMethod, "Unsupported payment method")
-        };
     }
 
     private static ApiResponse<PostTicketResponse> PostTicketFailedResponse()
@@ -163,6 +147,21 @@ public class TicketPoster(
             {
                 { "home", "/home" },
                 { "repost-ticket", "ticket/post" },
+            }
+        };
+    }
+
+    private static ApiResponse<PostTicketResponse> TicketAlreadyPostedResponse()
+    {
+        return new ApiResponse<PostTicketResponse>
+        {
+            StatusCode = StatusCodes.Status409Conflict,
+            Success = false,
+            Message = "Ticket already posted",
+            Errors = ["Ticket already posted"],
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" },
             }
         };
     }

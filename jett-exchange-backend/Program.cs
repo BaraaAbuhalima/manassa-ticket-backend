@@ -28,7 +28,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .WithExposedHeaders("X-Delete-Token");
     });
 });
 
@@ -100,7 +101,11 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         {
             Success = false,
             Message = "Validation failed",
-            Errors = errors
+            Errors = errors,
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" },
+            }
         };
 
         return new BadRequestObjectResult(response);

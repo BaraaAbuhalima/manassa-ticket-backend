@@ -17,6 +17,7 @@ public class TicketControllerTests
     private Mock<ITicketReader> _reader = null!;
     private Mock<ITicketDeleter> _deleter = null!;
     private Mock<ITicketPoster> _poster = null!;
+    private Mock<ITicketDeleteTokenService> _deleteTokenService = null!;
     private TicketController _sut = null!;
 
     [SetUp]
@@ -25,7 +26,8 @@ public class TicketControllerTests
         _reader = new Mock<ITicketReader>();
         _deleter = new Mock<ITicketDeleter>();
         _poster = new Mock<ITicketPoster>();
-        _sut = new TicketController(_reader.Object, _deleter.Object, _poster.Object)
+        _deleteTokenService = new Mock<ITicketDeleteTokenService>();
+        _sut = new TicketController(_reader.Object, _deleter.Object, _poster.Object, _deleteTokenService.Object)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
@@ -78,20 +80,26 @@ public class TicketControllerTests
     [Test]
     public async Task GetByPin_SetsDeleteTokenResponseHeader_WhenTicketFound()
     {
+        var ticketId = Guid.NewGuid();
         var response = new ApiResponse<GetTicketByPinResponse>
         {
             StatusCode = 200,
             Success = true,
             Data = new GetTicketByPinResponse
             {
-                Id = Guid.NewGuid(),
+                Id = ticketId,
                 TicketDateTime = DateTime.UtcNow,
                 NumberOfBags = 1,
                 TotalPrice = 10m,
-                DeleteToken = "the-delete-jwt"
+                Status = TicketSellStatus.ForSale,
+                SellerEmail = "seller@example.com",
+                SellerPhone = "+1234567890",
+                PaymentMethod = PaymentMethod.Reflect,
+                PaymentInfo = new Reflect { PhoneNumber = "0791234567" }
             }
         };
         _reader.Setup(s => s.GetByPinAsync("ABC123")).ReturnsAsync(response);
+        _deleteTokenService.Setup(s => s.GenerateToken(ticketId)).Returns("the-delete-jwt");
 
         await _sut.GetByPin("ABC123");
 
@@ -237,6 +245,106 @@ public class TicketControllerTests
         await _sut.DeleteByToken();
 
         _deleter.Verify(s => s.DeleteByTokenAsync(string.Empty), Times.Once);
+    }
+
+    [Test]
+    public async Task RepublishByToken_ReturnsServiceStatusCodeAndBody()
+    {
+        SetAuthorizationHeader("Bearer valid-token");
+        var response = new ApiResponse<string> { StatusCode = 200, Success = true };
+        _deleter.Setup(s => s.RepublishByTokenAsync("valid-token")).ReturnsAsync(response);
+
+        var result = await _sut.RepublishByToken();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(200);
+        objectResult.Value.Should().BeSameAs(response);
+        _deleter.Verify(s => s.RepublishByTokenAsync("valid-token"), Times.Once);
+    }
+
+    [Test]
+    public async Task RepublishByToken_PropagatesConflictStatusCode()
+    {
+        SetAuthorizationHeader("Bearer valid-token");
+        var response = new ApiResponse<string> { StatusCode = 409, Success = false };
+        _deleter.Setup(s => s.RepublishByTokenAsync("valid-token")).ReturnsAsync(response);
+
+        var result = await _sut.RepublishByToken();
+
+        result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(409);
+    }
+
+    [Test]
+    public async Task RepublishByToken_PassesEmptyToken_WhenAuthorizationHeaderMissing()
+    {
+        var response = new ApiResponse<string> { StatusCode = 401, Success = false };
+        _deleter.Setup(s => s.RepublishByTokenAsync(string.Empty)).ReturnsAsync(response);
+
+        await _sut.RepublishByToken();
+
+        _deleter.Verify(s => s.RepublishByTokenAsync(string.Empty), Times.Once);
+    }
+
+    [Test]
+    public async Task ModifyTicket_ReturnsServiceStatusCodeAndBody()
+    {
+        SetAuthorizationHeader("Bearer valid-token");
+        var request = new UpdateTicketRequest
+        {
+            Payment = new PaymentUpdateRequest
+            {
+                PaymentMethod = PaymentMethod.Reflect,
+                PaymentInfoRequest = new PaymentInfoRequest { PhoneNumber = "0791234567" }
+            }
+        };
+        var response = new ApiResponse<string> { StatusCode = 200, Success = true };
+        _deleter.Setup(s => s.ModifyTicketByTokenAsync("valid-token", request)).ReturnsAsync(response);
+
+        var result = await _sut.ModifyTicket(request);
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(200);
+        objectResult.Value.Should().BeSameAs(response);
+        _deleter.Verify(s => s.ModifyTicketByTokenAsync("valid-token", request), Times.Once);
+    }
+
+    [Test]
+    public async Task ModifyTicket_PropagatesConflictStatusCode()
+    {
+        SetAuthorizationHeader("Bearer valid-token");
+        var request = new UpdateTicketRequest
+        {
+            Payment = new PaymentUpdateRequest
+            {
+                PaymentMethod = PaymentMethod.Reflect,
+                PaymentInfoRequest = new PaymentInfoRequest { PhoneNumber = "0791234567" }
+            }
+        };
+        var response = new ApiResponse<string> { StatusCode = 409, Success = false };
+        _deleter.Setup(s => s.ModifyTicketByTokenAsync("valid-token", request)).ReturnsAsync(response);
+
+        var result = await _sut.ModifyTicket(request);
+
+        result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(409);
+    }
+
+    [Test]
+    public async Task ModifyTicket_PassesEmptyToken_WhenAuthorizationHeaderMissing()
+    {
+        var request = new UpdateTicketRequest
+        {
+            Payment = new PaymentUpdateRequest
+            {
+                PaymentMethod = PaymentMethod.Reflect,
+                PaymentInfoRequest = new PaymentInfoRequest { PhoneNumber = "0791234567" }
+            }
+        };
+        var response = new ApiResponse<string> { StatusCode = 401, Success = false };
+        _deleter.Setup(s => s.ModifyTicketByTokenAsync(string.Empty, request)).ReturnsAsync(response);
+
+        await _sut.ModifyTicket(request);
+
+        _deleter.Verify(s => s.ModifyTicketByTokenAsync(string.Empty, request), Times.Once);
     }
 
     [Test]

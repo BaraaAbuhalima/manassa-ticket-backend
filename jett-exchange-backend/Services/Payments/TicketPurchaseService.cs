@@ -11,7 +11,11 @@ using Stripe;
 
 namespace jett_exchange_backend.Services.Payments;
 
-public class TicketPurchaseService(AppDbContext dbContext, IOptions<StripeOptions> stripeOptions) : ITicketPurchaseService
+public class TicketPurchaseService(
+    AppDbContext dbContext,
+    IOptions<StripeOptions> stripeOptions,
+    ILogger<TicketPurchaseService> logger)
+    : ITicketPurchaseService
 {
     public async Task<ApiResponse<PurchaseTicketResponse>> CreatePaymentIntentAsync(Guid ticketId, PurchaseTicketRequest request)
     {
@@ -28,7 +32,11 @@ public class TicketPurchaseService(AppDbContext dbContext, IOptions<StripeOption
                 StatusCode = StatusCodes.Status409Conflict,
                 Success = false,
                 Message = "Ticket is not available for purchase",
-                Errors = ["Ticket is not available for purchase"]
+                Errors = ["Ticket is not available for purchase"],
+                Links = new Dictionary<string, string>
+                {
+                    { "home", "/home" },
+                }
             };
         }
 
@@ -70,19 +78,26 @@ public class TicketPurchaseService(AppDbContext dbContext, IOptions<StripeOption
                 PublishableKey = stripeOptions.Value.PublishableKey,
                 Amount = ticket.TotalPrice,
                 Currency = currency
+            },
+            Links = new Dictionary<string, string>
+            {
+                { "home", "/home" },
+                { "ticket", "/ticket?id=" + ticket.Id },
             }
         };
     }
 
     public async Task<ApiResponse<string>> HandleStripeWebhookAsync(string json, string stripeSignatureHeader)
     {
+
         Event stripeEvent;
         try
         {
             stripeEvent = EventUtility.ConstructEvent(json, stripeSignatureHeader, stripeOptions.Value.WebhookSecret);
         }
-        catch (StripeException)
+        catch (StripeException ex)
         {
+            logger.LogWarning(ex, "Rejected Stripe webhook: signature verification failed");
             return new ApiResponse<string>
             {
                 StatusCode = StatusCodes.Status400BadRequest,
@@ -91,18 +106,42 @@ public class TicketPurchaseService(AppDbContext dbContext, IOptions<StripeOption
                 Errors = ["Invalid Stripe webhook signature"]
             };
         }
-
+        Console.WriteLine(stripeEvent);
         if (stripeEvent.Data.Object is PaymentIntent paymentIntent)
         {
             var ticket = await dbContext.Tickets
                 .FirstOrDefaultAsync(t => t.StripePaymentIntentId == paymentIntent.Id);
-
-            if (ticket is not null && stripeEvent.Type == "payment_intent.succeeded" && ticket.Status == TicketSellStatus.ForSale)
+            Console.WriteLine(ticket);
+            if (ticket is null)
+            {
+                logger.LogWarning(
+                    "Received Stripe event {EventType} for payment intent {PaymentIntentId} but no ticket references it",
+                    stripeEvent.Type, paymentIntent.Id);
+            }
+            else if (stripeEvent.Type != "payment_intent.succeeded")
+            {
+                logger.LogInformation(
+                    "Ignoring Stripe event {EventType} for ticket {TicketId}", stripeEvent.Type, ticket.Id);
+            }
+            else if (ticket.Status != TicketSellStatus.ForSale)
+            {
+                logger.LogWarning(
+                    "Payment succeeded for ticket {TicketId} but it was already {Status}; not marking as sold",
+                    ticket.Id, ticket.Status);
+            }
+            else
             {
                 ticket.Status = TicketSellStatus.Sold;
+                ticket.SoldAt = DateTime.UtcNow;
                 dbContext.Tickets.Update(ticket);
                 await dbContext.SaveChangesAsync();
+                logger.LogInformation(
+                    "Marked ticket {TicketId} as sold from payment intent {PaymentIntentId}", ticket.Id, paymentIntent.Id);
             }
+        }
+        else
+        {
+            logger.LogInformation("Ignoring Stripe event {EventType}: not a payment intent", stripeEvent.Type);
         }
 
         return new ApiResponse<string>
