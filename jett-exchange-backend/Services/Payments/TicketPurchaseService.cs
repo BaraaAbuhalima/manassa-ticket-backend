@@ -3,6 +3,7 @@ using jett_exchange_backend.Configuration;
 using jett_exchange_backend.Data;
 using jett_exchange_backend.DTOs.Requests;
 using jett_exchange_backend.DTOs.Responses;
+using jett_exchange_backend.Messaging;
 using jett_exchange_backend.Models;
 using jett_exchange_backend.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,8 @@ namespace jett_exchange_backend.Services.Payments;
 public class TicketPurchaseService(
     AppDbContext dbContext,
     IOptions<StripeOptions> stripeOptions,
+    ITicketSoldNotificationPublisher soldNotificationPublisher,
+    ITicketPurchasedNotificationPublisher purchasedNotificationPublisher,
     ILogger<TicketPurchaseService> logger)
     : ITicketPurchaseService
 {
@@ -41,7 +44,7 @@ public class TicketPurchaseService(
         }
 
         var currency = stripeOptions.Value.Currency;
-        var amountInSmallestUnit = (long)Math.Round(ticket.TotalPrice * 100, MidpointRounding.AwayFromZero);
+        var amountInSmallestUnit = (long)Math.Round(ticket.TotalPriceUsd * 100, MidpointRounding.AwayFromZero);
 
         var paymentIntentService = new PaymentIntentService();
         var paymentIntent = await paymentIntentService.CreateAsync(new PaymentIntentCreateOptions
@@ -76,7 +79,7 @@ public class TicketPurchaseService(
                 TicketId = ticket.Id,
                 ClientSecret = paymentIntent.ClientSecret,
                 PublishableKey = stripeOptions.Value.PublishableKey,
-                Amount = ticket.TotalPrice,
+                Amount = ticket.TotalPriceUsd,
                 Currency = currency
             },
             Links = new Dictionary<string, string>
@@ -137,6 +140,8 @@ public class TicketPurchaseService(
                 await dbContext.SaveChangesAsync();
                 logger.LogInformation(
                     "Marked ticket {TicketId} as sold from payment intent {PaymentIntentId}", ticket.Id, paymentIntent.Id);
+
+                await PublishSoldNotificationsAsync(ticket);
             }
         }
         else
@@ -150,5 +155,41 @@ public class TicketPurchaseService(
             Success = true,
             Message = "Webhook processed successfully"
         };
+    }
+
+    private async Task PublishSoldNotificationsAsync(Ticket ticket)
+    {
+        try
+        {
+            var date = ticket.TicketDateTime.ToString("yyyy-MM-dd");
+
+            await soldNotificationPublisher.PublishAsync(new SendEmailMessage
+            {
+                To = ticket.SellerEmail,
+                Subject = "Your ticket has sold",
+                Body = $"Good news — your ticket for {date} has sold on Jett Ticket Exchange."
+            });
+
+            if (ticket.BuyerEmail is null)
+            {
+                logger.LogWarning("Ticket {TicketId} was sold but has no BuyerEmail; skipping buyer notification", ticket.Id);
+                return;
+            }
+
+            await purchasedNotificationPublisher.PublishAsync(new SendEmailMessage
+            {
+                To = ticket.BuyerEmail,
+                Subject = "Your Jett Ticket Exchange purchase",
+                Body = $"Thanks for your purchase! Your ticket for {date} is attached.",
+                AttachmentPath = ticket.TicketFilePath,
+                AttachmentFileName = $"ticket-{ticket.Pin}.pdf"
+            });
+        }
+        catch (Exception ex)
+        {
+            // A broker outage shouldn't fail webhook processing; the sale is already
+            // recorded, the seller/buyer just won't get an email for it.
+            logger.LogError(ex, "Failed to publish sold-notification emails for ticket {TicketId}", ticket.Id);
+        }
     }
 }

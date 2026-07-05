@@ -23,6 +23,7 @@ public class TicketPoster(
     ITicketVerifier ticketVerifier,
     IRandomPinGenerator pinGenerator,
     ITicketAvailablePublisher availablePublisher,
+    IEmailMessagePublisher emailPublisher,
     ILogger<TicketPoster> logger)
     : ITicketPoster
 {
@@ -51,6 +52,7 @@ public class TicketPoster(
         var ticket = await SaveTicketAsync(request, ticketInfo.TicketId, verifiedTicket);
 
         await PublishTicketAvailableAsync(ticket);
+        await PublishPostConfirmationAsync(ticket);
 
         var postedTicket = new PostTicketResponse
         {
@@ -82,7 +84,8 @@ public class TicketPoster(
             OriginalOwnerName = verifiedTicket.OriginalOwnerName,
             OriginalOwnerPassportNumber = verifiedTicket.OriginalOwnerPassportNumber,
             NumberOfBags = verifiedTicket.NumberOfBags,
-            TotalPrice = verifiedTicket.TotalPrice,
+            TotalPriceJod = request.Price,
+            TotalPriceUsd = request.Price * CurrencyConversion.JodToUsdRate,
             OriginalPrice = verifiedTicket.TotalPrice,
             SellerName = request.SellerName,
             SellerEmail = request.SellerEmail,
@@ -116,6 +119,49 @@ public class TicketPoster(
             // A broker outage shouldn't fail a successful ticket post; subscribers
             // just won't be notified for this listing.
             logger.LogError(ex, "Failed to publish ticket-available message for ticket {TicketId}", ticket.Id);
+        }
+    }
+
+    private async Task PublishPostConfirmationAsync(Ticket ticket)
+    {
+        try
+        {
+            var paymentDetails = ticket.PaymentInfo switch
+            {
+                BankTransferInfo b => $"IBAN transfer - {b.BankDetails.AccountHolderName}, {b.BankDetails.BankName} ({b.BankDetails.Country}), account {b.BankDetails.AccountNumber}",
+                Reflect r => $"Reflect - {r.PhoneNumber}",
+                PhoneTransfer p => $"Phone transfer - {p.PhoneNumber}",
+                _ => "N/A"
+            };
+
+            await emailPublisher.PublishAsync(new SendEmailMessage
+            {
+                To = ticket.SellerEmail,
+                Subject = "Your ticket has been posted - Jett Ticket Exchange",
+                Body = $"""
+                    Hi {ticket.SellerName},
+
+                    Your ticket has been posted successfully. Here's a confirmation of what you submitted:
+
+                    Ticket reference: {ticket.TicketId}
+                    Flight date: {ticket.TicketDateTime:yyyy-MM-dd}
+                    Number of bags: {ticket.NumberOfBags}
+                    Price: {ticket.TotalPriceUsd} USD ({ticket.TotalPriceJod} JOD)
+                    Seller name: {ticket.SellerName}
+                    Seller email: {ticket.SellerEmail}
+                    Seller phone: {ticket.SellerPhone}
+                    Payment method: {paymentDetails}
+
+                    Your PIN: {ticket.Pin}
+                    Keep this PIN safe - you'll need it to look up, edit, or delete this listing later.
+                    """
+            });
+        }
+        catch (Exception ex)
+        {
+            // A broker outage shouldn't fail a successful ticket post; the seller
+            // just won't get a confirmation email for this listing.
+            logger.LogError(ex, "Failed to publish post-confirmation email for ticket {TicketId}", ticket.Id);
         }
     }
 

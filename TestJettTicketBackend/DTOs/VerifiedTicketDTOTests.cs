@@ -73,34 +73,34 @@ public class VerifiedTicketDTOTests
     }
 
     [Test]
-    public void Constructor_ParsesPriceWithInvariantCulture()
+    public void Constructor_ParsesPriceWithInvariantCulture_AndConvertsJodToUsd()
     {
         var transfer = CreateTransferTicket(ticketAmount: "25.50");
 
         var result = new VerifiedTicketDTO(transfer);
 
-        result.Price.Should().Be(25.50m);
+        result.Price.Should().Be(36.4650m); // 25.50 JOD * 1.43
     }
 
     [Test]
-    public void Constructor_CalculatesTotalPrice_AsPricePlusTwoPerBag()
+    public void Constructor_CalculatesTotalPrice_AsConvertedPricePlusTwoPerBag()
     {
         var transfer = CreateTransferTicket(ticketAmount: "20", luggageCount: 3);
 
         var result = new VerifiedTicketDTO(transfer);
 
         result.NumberOfBags.Should().Be(3);
-        result.TotalPrice.Should().Be(26m); // 20 + 3*2
+        result.TotalPrice.Should().Be(34.60m); // (20 * 1.43) + 3*2
     }
 
     [Test]
-    public void Constructor_TotalPrice_EqualsPrice_WhenNoLuggage()
+    public void Constructor_TotalPrice_EqualsConvertedPrice_WhenNoLuggage()
     {
         var transfer = CreateTransferTicket(ticketAmount: "20", luggageCount: 0);
 
         var result = new VerifiedTicketDTO(transfer);
 
-        result.TotalPrice.Should().Be(20m);
+        result.TotalPrice.Should().Be(28.60m); // 20 * 1.43
     }
 
     [Test]

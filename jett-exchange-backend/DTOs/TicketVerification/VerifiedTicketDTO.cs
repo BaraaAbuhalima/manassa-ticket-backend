@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
+using jett_exchange_backend.Common;
 
 namespace jett_exchange_backend.DTOs.TicketVerification;
 
@@ -37,7 +38,7 @@ public class VerifiedTicketDTO
         TicketDateTime = date.Date.Add(time);
         Console.WriteLine(TicketDateTime);
 
-        Price = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture);
+        Price = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture) * CurrencyConversion.JodToUsdRate;
 
         NumberOfBags = ticket.Count_luggage;
 

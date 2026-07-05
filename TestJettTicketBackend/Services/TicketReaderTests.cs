@@ -31,8 +31,9 @@ public class TicketReaderTests
             OriginalOwnerPassportNumber = "P1",
             TicketDateTime = ticketDateTime ?? DateTime.UtcNow,
             NumberOfBags = 1,
-            TotalPrice = 10m,
-            OriginalPrice = 10m,
+            TotalPriceJod = 10m,
+            TotalPriceUsd = 14.3m,
+            OriginalPrice = 14.3m,
             SellerName = "Seller",
             SellerEmail = "seller@example.com",
             SellerPhone = "+1234567890",
@@ -143,7 +144,8 @@ public class TicketReaderTests
         result.Data!.SellerEmail.Should().Be(ticket.SellerEmail);
         result.Data!.SellerPhone.Should().Be(ticket.SellerPhone);
         result.Data!.PaymentMethod.Should().Be(ticket.PaymentMethod);
-        result.Data!.TotalPrice.Should().Be(ticket.TotalPrice);
+        result.Data!.TotalPriceUsd.Should().Be(ticket.TotalPriceUsd);
+        result.Data!.TotalPriceJod.Should().Be(ticket.TotalPriceJod);
         result.Data!.PaymentInfo.Should().BeOfType<Reflect>();
         ((Reflect)result.Data!.PaymentInfo).PhoneNumber.Should().Be("0791234567");
     }

@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using jett_exchange_backend.Common;
 using jett_exchange_backend.Common.ValueObjects;
 
 namespace jett_exchange_backend.Models;
@@ -24,10 +26,12 @@ public class BankTransferInfo : PaymentInfo
 
 public class Reflect : PaymentInfo
 {
+    [MaxLength(ValidationConstants.PhoneMaxLength)]
     public required string PhoneNumber { get; set; }
 }
 
 public class PhoneTransfer : PaymentInfo
 {
+    [MaxLength(ValidationConstants.PhoneMaxLength)]
     public required string PhoneNumber { get; set; }
 }

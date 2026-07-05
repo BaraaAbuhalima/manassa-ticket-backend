@@ -44,7 +44,8 @@ public class TicketDeleterTests
         OriginalOwnerName = "Owner",
         OriginalOwnerPassportNumber = "P1",
         NumberOfBags = 1,
-        TotalPrice = 10m,
+        TotalPriceJod = 10m,
+        TotalPriceUsd = 14.3m,
         OriginalPrice = originalPrice,
         SellerName = "Seller",
         SellerEmail = "seller@example.com",
@@ -377,30 +378,38 @@ public class TicketDeleterTests
     [Test]
     public async Task ModifyTicketByTokenAsync_UpdatesPrice_WhenWithinOriginalPricePlusOne()
     {
-        var ticket = CreateTicket(pin: "PRICE-1", status: TicketSellStatus.ForSale, originalPrice: 10m);
+        // originalPrice (USD) = 13.3 -> cap = 14.3 USD. A JOD price of 10 converts to
+        // exactly 14.3 USD (10 * 1.43), landing right on the cap.
+        var ticket = CreateTicket(pin: "PRICE-1", status: TicketSellStatus.ForSale, originalPrice: 13.3m);
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
         var token = _deleteTokenService.GenerateToken(ticket.Id);
 
-        var result = await _sut.ModifyTicketByTokenAsync(token, new UpdateTicketRequest { Price = 11m });
+        var result = await _sut.ModifyTicketByTokenAsync(token, new UpdateTicketRequest { Price = 10m });
 
         result.Success.Should().BeTrue();
         result.StatusCode.Should().Be(200);
-        GetPersistedTicket(ticket.Id)!.TotalPrice.Should().Be(11m);
+        var persisted = GetPersistedTicket(ticket.Id)!;
+        persisted.TotalPriceJod.Should().Be(10m);
+        persisted.TotalPriceUsd.Should().Be(14.3m);
     }
 
     [Test]
     public async Task ModifyTicketByTokenAsync_ReturnsBadRequest_WhenPriceExceedsOriginalPricePlusOne()
     {
-        var ticket = CreateTicket(pin: "PRICE-2", status: TicketSellStatus.ForSale, originalPrice: 10m);
+        // originalPrice (USD) = 13.3 -> cap = 14.3 USD. A JOD price of 10.1 converts to
+        // 14.443 USD, just over the cap.
+        var ticket = CreateTicket(pin: "PRICE-2", status: TicketSellStatus.ForSale, originalPrice: 13.3m);
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
         var token = _deleteTokenService.GenerateToken(ticket.Id);
 
-        var result = await _sut.ModifyTicketByTokenAsync(token, new UpdateTicketRequest { Price = 11.01m });
+        var result = await _sut.ModifyTicketByTokenAsync(token, new UpdateTicketRequest { Price = 10.1m });
 
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(400);
-        GetPersistedTicket(ticket.Id)!.TotalPrice.Should().Be(10m);
+        var persisted = GetPersistedTicket(ticket.Id)!;
+        persisted.TotalPriceJod.Should().Be(10m);
+        persisted.TotalPriceUsd.Should().Be(14.3m);
     }
 }

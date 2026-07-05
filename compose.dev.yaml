@@ -6,7 +6,10 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - python-service
+      python-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT
       - Stripe__SecretKey

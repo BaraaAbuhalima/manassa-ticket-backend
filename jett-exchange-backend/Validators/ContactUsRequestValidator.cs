@@ -1,4 +1,5 @@
 using FluentValidation;
+using jett_exchange_backend.Common;
 using jett_exchange_backend.DTOs.Requests;
 
 namespace jett_exchange_backend.Validators;
@@ -14,7 +15,8 @@ public class ContactUsRequestValidator : AbstractValidator<ContactUsRequest>
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email is required")
             .EmailAddress().WithMessage("Invalid email format")
-            .MaximumLength(254).WithMessage("Email must not exceed 254 characters");
+            .MaximumLength(ValidationConstants.EmailMaxLength)
+            .WithMessage($"Email must not exceed {ValidationConstants.EmailMaxLength} characters");
 
         RuleFor(x => x.Message)
             .NotEmpty().WithMessage("Message is required")

@@ -1,4 +1,4 @@
-namespace jett_notification_service.Configuration;
+namespace jett_exchange_backend.Configuration;
 
 public class SmtpOptions
 {

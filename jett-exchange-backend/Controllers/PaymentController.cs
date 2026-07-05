@@ -18,6 +18,7 @@ public class PaymentController(ITicketPurchaseService ticketPurchaseService) : C
     [HttpPost("webhook")]
     public async Task<IActionResult> StripeWebhook()
     {
+        Console.WriteLine("Stripe webhook received");
         using var reader = new StreamReader(Request.Body);
         var json = await reader.ReadToEndAsync();
         var signature = Request.Headers["Stripe-Signature"].ToString();

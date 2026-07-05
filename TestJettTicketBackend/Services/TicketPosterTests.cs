@@ -28,6 +28,7 @@ public class TicketPosterTests
     private Mock<ITicketVerifier> _verifier = null!;
     private Mock<IRandomPinGenerator> _pinGenerator = null!;
     private Mock<ITicketAvailablePublisher> _availablePublisher = null!;
+    private Mock<IEmailMessagePublisher> _emailPublisher = null!;
     private AppDbContext _dbContext = null!;
     private TicketPoster _sut = null!;
 
@@ -45,6 +46,7 @@ public class TicketPosterTests
         _verifier = new Mock<ITicketVerifier>();
         _pinGenerator = new Mock<IRandomPinGenerator>();
         _availablePublisher = new Mock<ITicketAvailablePublisher>();
+        _emailPublisher = new Mock<IEmailMessagePublisher>();
 
         var options = Options.Create(new StorageOptions
         {
@@ -60,6 +62,7 @@ public class TicketPosterTests
             _verifier.Object,
             _pinGenerator.Object,
             _availablePublisher.Object,
+            _emailPublisher.Object,
             NullLogger<TicketPoster>.Instance);
     }
 
@@ -155,17 +158,18 @@ public class TicketPosterTests
     }
 
     [Test]
-    public async Task PostTicketAsync_UsesVerifiedTicketData_NotRequestPrice()
+    public async Task PostTicketAsync_SetsTotalPriceFromRequestPrice_ConvertedJodToUsd_ButOriginalPriceFromVerifiedData()
     {
         SetupSuccessfulExtractionAndVerification();
         var request = CreatePostRequest(PaymentMethod.Reflect, new PaymentInfoRequest { PhoneNumber = "0791234567" });
-        request.Price = 999m;
+        request.Price = 100m;
 
         var result = await _sut.PostTicketAsync(request);
 
         var saved = GetPersistedTicket(result.Data!.TicketId);
-        saved!.TotalPrice.Should().Be(25m);
-        saved.OriginalPrice.Should().Be(25m);
+        saved!.TotalPriceJod.Should().Be(100m);
+        saved.TotalPriceUsd.Should().Be(143m); // 100 JOD * 1.43
+        saved.OriginalPrice.Should().Be(25m); // from verified ticket data, not the request
         saved.OriginalOwnerName.Should().Be("Owner");
     }
 
@@ -228,8 +232,9 @@ public class TicketPosterTests
             OriginalOwnerName = "Owner",
             OriginalOwnerPassportNumber = "P1",
             NumberOfBags = 1,
-            TotalPrice = 25m,
-            OriginalPrice = 25m,
+            TotalPriceJod = 25m,
+            TotalPriceUsd = 35.75m,
+            OriginalPrice = 35.75m,
             SellerName = "Seller",
             SellerEmail = "seller@example.com",
             SellerPhone = "+1234567890",

@@ -1,17 +1,17 @@
 using System.Text.Json;
-using jett_notification_service.Configuration;
-using jett_notification_service.Services;
+using jett_exchange_backend.Configuration;
+using jett_exchange_backend.Services.Email;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace jett_notification_service.Messaging;
+namespace jett_exchange_backend.Messaging;
 
-public class EmailNotificationConsumer(
+public class TicketPurchasedNotificationConsumer(
     RabbitMqConnectionProvider connectionProvider,
     IOptions<RabbitMqOptions> options,
     IServiceScopeFactory scopeFactory,
-    ILogger<EmailNotificationConsumer> logger)
+    ILogger<TicketPurchasedNotificationConsumer> logger)
     : BackgroundService
 {
     private IChannel? _channel;
@@ -22,7 +22,7 @@ public class EmailNotificationConsumer(
         _channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
         await _channel.QueueDeclareAsync(
-            queue: options.Value.EmailNotificationQueueName,
+            queue: options.Value.TicketPurchasedNotificationQueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -38,20 +38,26 @@ public class EmailNotificationConsumer(
                 {
                     using var scope = scopeFactory.CreateScope();
                     var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-                    await emailSender.SendAsync(message.To, message.Subject, message.Body, stoppingToken);
+                    await emailSender.SendAsync(
+                        message.To,
+                        message.Subject,
+                        message.Body,
+                        message.AttachmentPath,
+                        message.AttachmentFileName,
+                        stoppingToken);
                 }
 
                 await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to process email notification message");
+                logger.LogError(ex, "Failed to process ticket-purchased notification message");
                 await _channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true, cancellationToken: stoppingToken);
             }
         };
 
         await _channel.BasicConsumeAsync(
-            queue: options.Value.EmailNotificationQueueName,
+            queue: options.Value.TicketPurchasedNotificationQueueName,
             autoAck: false,
             consumer: consumer,
             cancellationToken: stoppingToken);

@@ -7,7 +7,8 @@ public class GetTicketByPinResponse
     public required Guid Id { get; set; }
     public required DateTime TicketDateTime { get; set; }
     public required int NumberOfBags { get; set; }
-    public required decimal TotalPrice { get; set; }
+    public required decimal TotalPriceUsd { get; set; }
+    public required decimal TotalPriceJod { get; set; }
     public required TicketSellStatus Status { get; set; }
     public DateTime? SoldAt { get; set; }
     public required string SellerEmail { get; set; }

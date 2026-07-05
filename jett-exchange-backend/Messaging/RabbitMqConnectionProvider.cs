@@ -4,8 +4,11 @@ using RabbitMQ.Client;
 
 namespace jett_exchange_backend.Messaging;
 
-public class RabbitMqConnectionProvider(IOptions<RabbitMqOptions> options) : IAsyncDisposable
+public class RabbitMqConnectionProvider(IOptions<RabbitMqOptions> options, ILogger<RabbitMqConnectionProvider> logger)
+    : IAsyncDisposable
 {
+    private const int MaxConnectAttempts = 5;
+
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IConnection? _connection;
 
@@ -29,11 +32,35 @@ public class RabbitMqConnectionProvider(IOptions<RabbitMqOptions> options) : IAs
                 HostName = options.Value.HostName,
                 Port = options.Value.Port,
                 UserName = options.Value.UserName,
-                Password = options.Value.Password
+                Password = options.Value.Password,
+                VirtualHost = options.Value.VirtualHost
             };
 
-            _connection = await factory.CreateConnectionAsync(cancellationToken);
-            return _connection;
+            if (options.Value.UseTls)
+            {
+                factory.Ssl.Enabled = true;
+                factory.Ssl.ServerName = options.Value.HostName;
+            }
+
+            var delay = TimeSpan.FromSeconds(1);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    _connection = await factory.CreateConnectionAsync(cancellationToken);
+                    return _connection;
+                }
+                catch (Exception ex) when (attempt < MaxConnectAttempts)
+                {
+                    logger.LogWarning(
+                        ex,
+                        "RabbitMQ connection attempt {Attempt}/{MaxAttempts} failed, retrying in {Delay}",
+                        attempt, MaxConnectAttempts, delay);
+
+                    await Task.Delay(delay, cancellationToken);
+                    delay *= 2;
+                }
+            }
         }
         finally
         {

@@ -1,4 +1,5 @@
 using FluentValidation;
+using jett_exchange_backend.Common;
 using jett_exchange_backend.DTOs.Requests;
 
 namespace jett_exchange_backend.Validators;
@@ -14,6 +15,7 @@ public class PurchaseTicketRequestValidator : AbstractValidator<PurchaseTicketRe
         RuleFor(x => x.BuyerEmail)
             .NotEmpty().WithMessage("Buyer email is required")
             .EmailAddress().WithMessage("Invalid email format")
-            .MaximumLength(254).WithMessage("Buyer email must not exceed 254 characters");
+            .MaximumLength(ValidationConstants.EmailMaxLength)
+            .WithMessage($"Buyer email must not exceed {ValidationConstants.EmailMaxLength} characters");
     }
 }

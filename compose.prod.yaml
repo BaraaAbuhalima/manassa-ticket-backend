@@ -1,0 +1,36 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: jett-exchange-backend/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - python-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT
+      - Stripe__SecretKey
+      - Stripe__PublishableKey
+      - Stripe__WebhookSecret
+      - Jwt__SigningKey
+      - RabbitMq__HostName
+      - RabbitMq__Port
+      - RabbitMq__UserName
+      - RabbitMq__Password
+      - RabbitMq__VirtualHost
+      - RabbitMq__UseTls
+      - Smtp__Host
+      - Smtp__Port
+      - Smtp__Username
+      - Smtp__Password
+      - Smtp__FromAddress
+    volumes:
+      - ../../uploads:/app/uploads
+
+  python-service:
+    build: ./pdf-ticket-extract-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../uploads:/app/uploads
+

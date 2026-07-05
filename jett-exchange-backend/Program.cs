@@ -7,6 +7,7 @@ using jett_exchange_backend.Data;
 using jett_exchange_backend.Helpers;
 using jett_exchange_backend.Messaging;
 using jett_exchange_backend.Services.Contact;
+using jett_exchange_backend.Services.Email;
 using jett_exchange_backend.Services.FileStorage;
 using jett_exchange_backend.Services.Notifications;
 using jett_exchange_backend.Services.Payments;
@@ -14,7 +15,6 @@ using jett_exchange_backend.Services.Subscriptions;
 using jett_exchange_backend.Services.TicketExtraction;
 using jett_exchange_backend.Services.TicketVerification;
 using jett_exchange_backend.Services.Tickets;
-using jett_exchange_backend.Validators;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +26,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Delete-Token");
@@ -48,6 +48,8 @@ builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<RabbitMqOptions>(
     builder.Configuration.GetSection("RabbitMq"));
+builder.Services.Configure<SmtpOptions>(
+    builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<StripeOptions>(
     builder.Configuration.GetSection("Stripe"));
 builder.Services.Configure<ContactOptions>(
@@ -76,9 +78,15 @@ builder.Services.AddHttpClient<ITicketDataExtractor, PythonTicketDataExtractor>(
 builder.Services.AddSingleton<RabbitMqConnectionProvider>();
 builder.Services.AddScoped<ITicketAvailablePublisher, RabbitMqTicketAvailablePublisher>();
 builder.Services.AddScoped<IEmailMessagePublisher, RabbitMqEmailMessagePublisher>();
+builder.Services.AddScoped<ITicketSoldNotificationPublisher, RabbitMqTicketSoldNotificationPublisher>();
+builder.Services.AddScoped<ITicketPurchasedNotificationPublisher, RabbitMqTicketPurchasedNotificationPublisher>();
 builder.Services.AddScoped<ITicketAvailableNotifier, TicketAvailableNotifier>();
 builder.Services.AddScoped<IContactUsService, ContactUsService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<TicketAvailableConsumer>();
+builder.Services.AddHostedService<EmailNotificationConsumer>();
+builder.Services.AddHostedService<TicketSoldNotificationConsumer>();
+builder.Services.AddHostedService<TicketPurchasedNotificationConsumer>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -118,7 +126,6 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
 }
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

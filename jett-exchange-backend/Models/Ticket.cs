@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using jett_exchange_backend.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Models;
@@ -24,16 +25,18 @@ public class Ticket
 
 
     public required int NumberOfBags { get; set; }
-    [Column(TypeName = "decimal(3,2)")]
-    public required decimal TotalPrice { get; set; }
-    [Column(TypeName = "decimal(3,2)")]
+    [Column(TypeName = "decimal(10,2)")]
+    public required decimal TotalPriceUsd { get; set; }
+    [Column(TypeName = "decimal(10,2)")]
+    public required decimal TotalPriceJod { get; set; }
+    [Column(TypeName = "decimal(10,2)")]
     public required decimal OriginalPrice { get; init; }
     [MaxLength(100)]
     public required string SellerName { get; set; }
 
-    [MaxLength(254)]
+    [MaxLength(ValidationConstants.EmailMaxLength)]
     public required string SellerEmail { get; set; }
-    [MaxLength(30)]
+    [MaxLength(ValidationConstants.PhoneMaxLength)]
     public required string SellerPhone { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -49,7 +52,7 @@ public class Ticket
 
     [MaxLength(50)]
     public string? BuyerName { get; set; }
-    [MaxLength(254)]
+    [MaxLength(ValidationConstants.EmailMaxLength)]
     public string? BuyerEmail { get; set; }
     [MaxLength(255)]
     public string? StripePaymentIntentId { get; set; }

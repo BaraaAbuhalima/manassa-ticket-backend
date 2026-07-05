@@ -50,7 +50,8 @@ public class TicketReader(AppDbContext dbContext) : ITicketReader
                 Id = ticket.Id,
                 TicketDateTime = ticket.TicketDateTime,
                 NumberOfBags = ticket.NumberOfBags,
-                TotalPrice = ticket.TotalPrice,
+                TotalPriceUsd = ticket.TotalPriceUsd,
+                TotalPriceJod = ticket.TotalPriceJod,
                 Status = ticket.Status,
                 SoldAt = ticket.SoldAt,
                 SellerEmail = ticket.SellerEmail,
@@ -147,6 +148,7 @@ public class TicketReader(AppDbContext dbContext) : ITicketReader
         Id = ticket.Id,
         TicketDateTime = ticket.TicketDateTime,
         NumberOfBags = ticket.NumberOfBags,
-        TotalPrice = ticket.TotalPrice
+        TotalPriceUsd = ticket.TotalPriceUsd,
+        TotalPriceJod = ticket.TotalPriceJod
     };
 }

@@ -167,15 +167,17 @@ public class TicketDeleter(
 
         if (request.Price is not null)
         {
-            var maxPrice = ticket.OriginalPrice + 1;
-            if (request.Price > maxPrice)
+            var newPriceUsd = request.Price.Value * CurrencyConversion.JodToUsdRate;
+            var maxPriceUsd = ticket.OriginalPrice + 1;
+            if (newPriceUsd > maxPriceUsd)
             {
+                var maxPriceJod = maxPriceUsd / CurrencyConversion.JodToUsdRate;
                 return new ApiResponse<string>
                 {
                     StatusCode = StatusCodes.Status400BadRequest,
                     Success = false,
-                    Message = $"Price cannot exceed {maxPrice}",
-                    Errors = [$"Price cannot exceed {maxPrice}"],
+                    Message = $"Price cannot exceed {maxPriceJod:0.00} JOD",
+                    Errors = [$"Price cannot exceed {maxPriceJod:0.00} JOD"],
                     Links = new Dictionary<string, string>
                     {
                         { "home", "/home" },
@@ -184,7 +186,8 @@ public class TicketDeleter(
                 };
             }
 
-            ticket.TotalPrice = request.Price.Value;
+            ticket.TotalPriceJod = request.Price.Value;
+            ticket.TotalPriceUsd = newPriceUsd;
         }
 
         if (request.Payment is not null)

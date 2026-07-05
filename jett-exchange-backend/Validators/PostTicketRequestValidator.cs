@@ -1,4 +1,5 @@
 using FluentValidation;
+using jett_exchange_backend.Common;
 using jett_exchange_backend.Common.ValueObjects;
 using jett_exchange_backend.DTOs.Requests;
 using jett_exchange_backend.Models;
@@ -22,12 +23,14 @@ public class PostTicketRequestValidator : AbstractValidator<PostTicketRequest>
             .GreaterThan(0).WithMessage("Price must be a positive value");
 
         RuleFor(x => x.SellerEmail).NotNull().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Invalid email format");
+            .EmailAddress().MaximumLength(ValidationConstants.EmailMaxLength).WithMessage("Invalid email format");
 
         RuleFor(x => x.SellerPhone)
             .NotEmpty().WithMessage("Phone number is required")
             .Matches(@"^\+?(\d{1,3})?[-.\s]?\(?\d{1,4}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}$")
-            .WithMessage("Invalid phone number format");
+            .WithMessage("Invalid phone number format")
+            .MaximumLength(ValidationConstants.PhoneMaxLength)
+            .WithMessage($"Phone number must not exceed {ValidationConstants.PhoneMaxLength} characters");
 
         RuleFor(x => x.PaymentInfoRequest)
             .Custom(ValidatePaymentInfo);
