@@ -26,7 +26,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "https://jett-exchange-frontend.onrender.com")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Delete-Token");
@@ -56,15 +56,25 @@ builder.Services.Configure<ContactOptions>(
     builder.Configuration.GetSection("Contact"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
-// SQLite's ":memory:" database only lives as long as a connection to it stays open, and
-// "cache=shared" lets every scoped DbContext open its own connection (safe under concurrent
-// requests) while still seeing the same in-memory data. This keep-alive connection is what
-// keeps the shared in-memory database from being torn down between requests.
-const string SqliteInMemoryConnectionString = "Data Source=file:JettTickets?mode=memory&cache=shared";
-var keepAliveConnection = new SqliteConnection(SqliteInMemoryConnectionString);
-keepAliveConnection.Open();
-builder.Services.AddSingleton(keepAliveConnection);
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(SqliteInMemoryConnectionString));
+if (builder.Environment.IsDevelopment())
+{
+    // SQLite's ":memory:" database only lives as long as a connection to it stays open, and
+    // "cache=shared" lets every scoped DbContext open its own connection (safe under concurrent
+    // requests) while still seeing the same in-memory data. This keep-alive connection is what
+    // keeps the shared in-memory database from being torn down between requests.
+    const string SqliteInMemoryConnectionString = "Data Source=file:JettTickets?mode=memory&cache=shared";
+    var keepAliveConnection = new SqliteConnection(SqliteInMemoryConnectionString);
+    keepAliveConnection.Open();
+    builder.Services.AddSingleton(keepAliveConnection);
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(SqliteInMemoryConnectionString));
+}
+else
+{
+    var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
+        ?? throw new InvalidOperationException(
+            "ConnectionStrings:Postgres (env var ConnectionStrings__Postgres) must be set outside Development.");
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(postgresConnectionString));
+}
 builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
 builder.Services.AddScoped<ITicketReader, TicketReader>();
 builder.Services.AddScoped<ITicketDeleter, TicketDeleter>();
@@ -123,7 +133,17 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (app.Environment.IsDevelopment())
+    {
+        // Dev's SQLite database is thrown away on every restart, so there's no schema to
+        // migrate from — just create it fresh instead of tracking a migrations history.
+        db.Database.EnsureCreated();
+    }
+    else
+    {
+        db.Database.Migrate();
+    }
 }
 
 if (app.Environment.IsDevelopment())

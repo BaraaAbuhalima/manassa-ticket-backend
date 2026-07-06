@@ -47,7 +47,7 @@ public class Ticket
     public required string Pin { get; set; }
     public required TicketSellStatus Status { get; set; }
     public DateTime? SoldAt { get; set; }
-    [MaxLength(30)]
+    [MaxLength(100)]
     public required string TicketFilePath { get; set; }
 
     [MaxLength(50)]

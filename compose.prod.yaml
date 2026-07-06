@@ -9,18 +9,15 @@ services:
       - python-service
     environment:
       - ASPNETCORE_ENVIRONMENT
+      - ConnectionStrings__Postgres
       - Stripe__SecretKey
       - Stripe__PublishableKey
       - Stripe__WebhookSecret
       - Jwt__SigningKey
-      - RabbitMq__HostName
-      - RabbitMq__Port
-      - RabbitMq__UserName
-      - RabbitMq__Password
-      - RabbitMq__VirtualHost
-      - RabbitMq__UseTls
+      - RabbitMq__Url
       - Smtp__Host
       - Smtp__Port
+      - Smtp__EnableSsl
       - Smtp__Username
       - Smtp__Password
       - Smtp__FromAddress

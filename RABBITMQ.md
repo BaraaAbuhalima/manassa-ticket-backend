@@ -162,12 +162,7 @@ local broker still booting, or a brief network blip to an external one.
 
 ```json
 "RabbitMq": {
-  "HostName": "rabbitmq",
-  "Port": 5672,
-  "UserName": "guest",
-  "Password": "guest",
-  "VirtualHost": "/",
-  "UseTls": false,
+  "Url": "amqp://guest:guest@rabbitmq:5672/",
   "TicketAvailableQueueName": "ticket-available",
   "EmailNotificationQueueName": "email-notifications",
   "TicketSoldNotificationQueueName": "ticket-sold-notifications",
@@ -183,19 +178,16 @@ local broker still booting, or a brief network blip to an external one.
 }
 ```
 
-`VirtualHost` defaults to RabbitMQ's own default vhost (`/`); `UseTls` defaults to `false`. When
-`UseTls` is `true`, `RabbitMqConnectionProvider` sets `ConnectionFactory.Ssl.Enabled = true` and
-`Ssl.ServerName = HostName` (needed for correct TLS/SNI hostname verification against the
-broker's certificate).
+`RabbitMqConnectionProvider` builds its `ConnectionFactory` directly from `Url` via
+`factory.Uri = new Uri(options.Value.Url)`, which parses host/port/user/pass/vhost from the URL
+and enables TLS automatically for an `amqps://` scheme (vs. plain `amqp://` — no separate TLS
+flag needed).
 
-Credentials (and, in production, host/port/vhost/TLS) are overridden via env vars in `.env`
-(`RabbitMq__UserName`, `RabbitMq__Password`, `RabbitMq__HostName`, `RabbitMq__Port`,
-`RabbitMq__VirtualHost`, `RabbitMq__UseTls`, `Smtp__*`). In dev, both the `api` container and the
-local `rabbitmq` container read the same `RabbitMq__UserName`/`RabbitMq__Password` in
-`compose.yaml`, so the broker and client always agree on the same login.
-`HostName: "rabbitmq"` is the Docker Compose service name — this only resolves inside the
-compose network, not from the host machine. In production there is no local `rabbitmq`
-container; `HostName` points at an external broker instead — see [Production](#production).
+The dev default (`amqp://guest:guest@rabbitmq:5672/`) is overridden via `RabbitMq__Url` in `.env`
+for production (`Smtp__*` similarly). `rabbitmq` in the dev default is the Docker Compose service
+name — this only resolves inside the compose network, not from the host machine. In production
+there is no local `rabbitmq` container; `RabbitMq__Url` points at an external broker instead —
+see [Production](#production).
 
 ## Running it locally
 
@@ -213,13 +205,12 @@ retry note above for why that's safe).
 
 ## Production
 
-Production does not run a local broker. `.env` points `RabbitMq__HostName`/`Port`/
-`VirtualHost`/`UserName`/`Password` at an external managed RabbitMQ broker (e.g. CloudAMQP,
-Amazon MQ, or similar hosted provider) and sets `RabbitMq__UseTls=true` — managed brokers are
-reached over the public internet on a TLS port (typically `5671`) with a provider-assigned
-vhost, not `/`. No code or compose changes are needed to switch between dev and production —
-only `.env`, consistent with the rest of this project's deployment story (see the root
-`README.md`'s Deployment section).
+Production does not run a local broker. `.env` sets `RabbitMq__Url` to the full connection URL
+of an external managed RabbitMQ broker (e.g. CloudAMQP, Amazon MQ, or similar hosted provider),
+using `amqps://` (not `amqp://`) — managed brokers are reached over the public internet on a TLS
+port (typically `5671`) with a provider-assigned vhost, not `/`. No code or compose changes are
+needed to switch between dev and production — only `.env`, consistent with the rest of this
+project's deployment story (see the root `README.md`'s Deployment section).
 
 ## File map
 

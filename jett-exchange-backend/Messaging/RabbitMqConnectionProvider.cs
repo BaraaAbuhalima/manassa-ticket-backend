@@ -27,20 +27,12 @@ public class RabbitMqConnectionProvider(IOptions<RabbitMqOptions> options, ILogg
                 return _connection;
             }
 
+            // ConnectionFactory.Uri parses host/port/user/pass/vhost from the URL directly, and
+            // enables TLS automatically for an "amqps://" scheme (vs. plain "amqp://").
             var factory = new ConnectionFactory
             {
-                HostName = options.Value.HostName,
-                Port = options.Value.Port,
-                UserName = options.Value.UserName,
-                Password = options.Value.Password,
-                VirtualHost = options.Value.VirtualHost
+                Uri = new Uri(options.Value.Url)
             };
-
-            if (options.Value.UseTls)
-            {
-                factory.Ssl.Enabled = true;
-                factory.Ssl.ServerName = options.Value.HostName;
-            }
 
             var delay = TimeSpan.FromSeconds(1);
             for (var attempt = 1; ; attempt++)

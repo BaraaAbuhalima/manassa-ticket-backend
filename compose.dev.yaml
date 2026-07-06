@@ -6,24 +6,18 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      python-service:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - python-service
     environment:
       - ASPNETCORE_ENVIRONMENT
+      - ConnectionStrings__Postgres
       - Stripe__SecretKey
       - Stripe__PublishableKey
       - Stripe__WebhookSecret
       - Jwt__SigningKey
-      - RabbitMq__HostName
-      - RabbitMq__Port
-      - RabbitMq__UserName
-      - RabbitMq__Password
-      - RabbitMq__VirtualHost
-      - RabbitMq__UseTls
+      - RabbitMq__Url
       - Smtp__Host
       - Smtp__Port
+      - Smtp__EnableSsl
       - Smtp__Username
       - Smtp__Password
       - Smtp__FromAddress
@@ -39,7 +33,7 @@ services:
 
   # Dev-only extras (started when the "dev" profile is active, e.g. via scripts/dev.ps1
   # or COMPOSE_PROFILES=dev in .env). Not part of the production stack.
-  # Production connects to an external managed RabbitMQ broker via RabbitMq__* in .env instead.
+  # Production connects to an external managed RabbitMQ broker via RabbitMq__Url in .env instead.
   rabbitmq:
     image: rabbitmq:3-management
     profiles: ["dev"]
@@ -47,8 +41,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RabbitMq__UserName:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RabbitMq__Password:-guest}
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s

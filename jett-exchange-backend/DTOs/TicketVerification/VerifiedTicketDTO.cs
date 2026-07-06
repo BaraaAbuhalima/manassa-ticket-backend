@@ -30,13 +30,16 @@ public class VerifiedTicketDTO
         OriginalOwnerName = ticket.Name;
         OriginalOwnerPassportNumber = ticket.Passport_number;
 
-        var date = DateTime.Parse(response.Details.Data.Booking.Travel_date);
+        // AssumeUniversal + AdjustToUniversal makes parsing deterministic regardless of the
+        // server's local timezone: an unmarked date/time is treated as already UTC, and one
+        // with an offset/Z is converted to UTC rather than silently becoming Kind=Local.
+        var date = DateTime.Parse(
+            response.Details.Data.Booking.Travel_date,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
         var time = TimeSpan.Parse(response.Details.Data.Booking.Travel_time_from);
-        Console.WriteLine(date);
-        Console.WriteLine(time);
 
         TicketDateTime = date.Date.Add(time);
-        Console.WriteLine(TicketDateTime);
 
         Price = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture) * CurrencyConversion.JodToUsdRate;
 
