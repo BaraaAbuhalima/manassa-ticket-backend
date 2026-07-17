@@ -41,6 +41,13 @@ services:
     ports:
       - "8000:8000"
 
+  # Static frontend (nginx). Image is built + published by the frontend repo's
+  # "Tests and Deploy" workflow; that workflow pulls/restarts this service here.
+  frontend:
+    image: ghcr.io/baraaabuhalima/jett-exchange-frontend:latest
+    pull_policy: always
+    restart: unless-stopped
+
   # Reverse proxy: terminates HTTPS and routes domains to the right container.
   # api.YOURDOMAIN.com -> api:8080  (see Caddyfile)
   caddy:
@@ -55,6 +62,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+      - frontend
 
 volumes:
   caddy_data:
