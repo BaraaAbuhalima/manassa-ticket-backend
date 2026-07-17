@@ -60,9 +60,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    # frontend is deployed independently by the frontend repo, so it is not a
+    # startup dependency here. Caddy proxies to it once it is up.
     depends_on:
       - api
-      - frontend
 
 volumes:
   caddy_data:

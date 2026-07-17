@@ -107,8 +107,12 @@ jobs:
             set -e
             cd /opt/jett-exchange-backend
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            docker compose -f compose.prod.yaml pull
-            docker compose -f compose.prod.yaml up -d
+            # Only touch the services this repo owns. The frontend service is
+            # pulled/restarted by the frontend repo's own deploy (with its own
+            # token), so this token never needs access to the frontend image.
+            # --no-deps stops caddy from dragging the frontend image in.
+            docker compose -f compose.prod.yaml pull api python-service caddy
+            docker compose -f compose.prod.yaml up -d --no-deps api python-service caddy
             docker logout ghcr.io
             docker image prune -f
         env:
