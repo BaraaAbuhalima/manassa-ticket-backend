@@ -82,6 +82,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug secret presence
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+        run: |
+          echo "VPS_SSH_KEY length: ${#KEY}"
+          echo "VPS_SSH_KEY first line: $(printf '%s' "$KEY" | head -n1)"
+          echo "VPS_SSH_KEY last line:  $(printf '%s' "$KEY" | tail -n1)"
+          echo "VPS_HOST length: ${#HOST}"
+          echo "VPS_USER value: $USER"
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
