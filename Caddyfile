@@ -4,17 +4,21 @@
 
 # --- Active domains (DuckDNS) ---
 
-# Frontend -> the "frontend" container (nginx serving the built SPA on port 80).
 jett-ticket.duckdns.org {
-    reverse_proxy frontend:80
+    # API calls: /api/* -> backend. Path is kept intact because the .NET routes
+    # already include the /api prefix. This must come before the catch-all.
+    handle /api/* {
+        reverse_proxy api:8080
+    }
+
+    # Everything else -> the frontend SPA (nginx on port 80).
+    handle {
+        reverse_proxy frontend:80
+    }
 }
 
-# Backend API -> the "api" container on its internal port 8080.
+# Backend API also reachable directly on its own subdomain (optional).
 api.jett-ticket.duckdns.org {
-    reverse_proxy api:8080
-}
-
-jett-ticket.duckdns.org/api {
     reverse_proxy api:8080
 }
 # --- manassa-ticket.com: disabled until its DNS points at this VPS ---
