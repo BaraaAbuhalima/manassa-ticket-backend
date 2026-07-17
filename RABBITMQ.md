@@ -1,19 +1,22 @@
 # RabbitMQ messaging
 
-How `jett-exchange-backend` uses RabbitMQ to decouple ticket-availability notifications and
-email sending from the request path.
+How `jett-exchange-backend` uses RabbitMQ to decouple ticket posting, ticket-availability
+notifications, and email sending from the request path.
 
 ## Why it's here
 
-Two things need to happen without blocking an HTTP response:
+Several things need to happen without blocking an HTTP response:
 
 - When a ticket becomes available again, everyone subscribed to that date needs an email.
 - Contact-us submissions need to be emailed to the site owner.
 
-Both are pushed onto RabbitMQ queues instead of being done inline, so a slow/broken SMTP
-server can never fail a ticket-posting or contact-form request. All of this — publishers,
-consumers, and the SMTP send itself — lives in this one ASP.NET Core process; there is no
-separate worker service.
+Posting a new ticket (download from R2, extract, verify) is deliberately *not* on this list —
+see [R2_STORAGE.md](R2_STORAGE.md) for why that path blocks the request instead.
+
+All of these are pushed onto RabbitMQ queues instead of being done inline, so a slow/broken
+extraction service or SMTP server can never fail (or hang) the request that triggered them. All
+of this — publishers, consumers, and the SMTP send itself — lives in this one ASP.NET Core
+process; there is no separate worker service.
 
 ## Topology
 
@@ -36,9 +39,17 @@ Queue names are configured, not hardcoded — see [Configuration](#configuration
 
 ## Message flow
 
+Posting a ticket happens entirely inline on the request, ahead of everything below — see
+[R2_STORAGE.md](R2_STORAGE.md) for the full upload flow. In short: `TicketPoster` calls
+`TicketProcessor` directly (no queue hop), which downloads the PDF from R2, extracts/verifies
+it, and either persists the listing (`Status = ForSale`) — nothing is written to the database
+before this succeeds — or returns a rejection reason with nothing persisted, having already
+deleted the file from R2. Finalizing a listing is what triggers the `ticket-available` publish
+below.
+
 ```mermaid
 sequenceDiagram
-    participant Poster as TicketPoster / TicketDeleter
+    participant Poster as TicketProcessor / TicketDeleter
     participant TAQ as queue: ticket-available
     participant Consumer as TicketAvailableConsumer
     participant Notifier as TicketAvailableNotifier
@@ -105,18 +116,18 @@ public class SendEmailMessage
 ```
 
 `AttachmentPath`/`AttachmentFileName` are optional — when set, `SmtpEmailSender` reads the file
-from disk at send time and attaches it (as `application/pdf`) rather than the message carrying
-the file bytes itself; if the file is missing it logs a warning and sends the email without the
-attachment instead of failing the whole message.
+from R2 at send time (via `IFileStorage.OpenReadAsync`, see [R2_STORAGE.md](R2_STORAGE.md)) and
+attaches it (as `application/pdf`) rather than the message carrying the file bytes itself; if
+the file is missing it logs a warning and sends the email without the attachment instead of
+failing the whole message.
 
 ## Why go through a queue at all, in a single process?
 
-`TicketAvailableConsumer` and `EmailNotificationConsumer` both run as `BackgroundService`s in
-the same process that publishes to them. The queue hop isn't about crossing a service
-boundary — it's what keeps a burst of ticket postings (or a slow SMTP server) from running
-subscriber-matching DB queries or blocking SMTP sends synchronously on the request thread.
-Publish is fire-and-forget from the controller's point of view; the actual work happens later,
-off the request path, in a background consumer loop.
+`TicketAvailableConsumer` and `EmailNotificationConsumer` both run as `BackgroundService`s in the
+same process that publishes to them. The queue hop isn't about crossing a service boundary —
+it's what keeps subscriber-matching DB queries or a slow SMTP server from running synchronously
+on the request thread that triggered them. Publish is fire-and-forget from the caller's point of
+view; the actual work happens later, off the request path, in a background consumer loop.
 
 ## Connection handling
 
@@ -130,13 +141,14 @@ off the request path, in a background consumer loop.
 
 Publishers (`RabbitMqTicketAvailablePublisher`, `RabbitMqEmailMessagePublisher`,
 `RabbitMqTicketSoldNotificationPublisher`, `RabbitMqTicketPurchasedNotificationPublisher`) are
-registered `Scoped` and open a fresh channel per publish call, declaring the target queue
-(`durable: true, exclusive: false, autoDelete: false`) before publishing — that queue-declare is
-what actually creates the queue on first run; nothing provisions queues out-of-band. The two
-notification publishers are otherwise identical to `RabbitMqEmailMessagePublisher` — same
-`SendEmailMessage` DTO, just a different target queue — they exist as separate classes/interfaces
-purely so `TicketPurchaseService` can inject "publish to the seller queue" and "publish to the
-buyer queue" as two distinct dependencies.
+registered `Scoped` and open a fresh channel
+per publish call, declaring the target queue (`durable: true, exclusive: false,
+autoDelete: false`) before publishing — that queue-declare is what actually creates the queue on
+first run; nothing provisions queues out-of-band. The two notification publishers are otherwise
+identical to `RabbitMqEmailMessagePublisher` — same `SendEmailMessage` DTO, just a different
+target queue — they exist as separate classes/interfaces purely so `TicketPurchaseService` can
+inject "publish to the seller queue" and "publish to the buyer queue" as two distinct
+dependencies.
 
 Consumers (`TicketAvailableConsumer`, `EmailNotificationConsumer`,
 `TicketSoldNotificationConsumer`, `TicketPurchasedNotificationConsumer`) are `BackgroundService`s
@@ -226,7 +238,8 @@ project's deployment story (see the root `README.md`'s Deployment section).
 | `Messaging/RabbitMqTicketPurchasedNotificationPublisher.cs` | publishes `ticket-purchased-notifications` |
 | `Messaging/TicketPurchasedNotificationConsumer.cs` | consumes `ticket-purchased-notifications`, calls `IEmailSender` |
 | `Services/Email/SmtpEmailSender.cs` | sends the email via SMTP |
-| `Services/Tickets/TicketPoster.cs`, `TicketDeleter.cs` | trigger `ticket-available` on listing changes |
+| `Services/Tickets/TicketPoster.cs` | calls `ITicketProcessor` directly (no queue) to post a ticket |
+| `Services/Tickets/TicketProcessor.cs`, `TicketDeleter.cs` | trigger `ticket-available` on listing changes |
 | `Services/Notifications/TicketAvailableNotifier.cs` | matches subscribers, triggers `email-notifications` |
 | `Services/Contact/ContactUsService.cs` | triggers `email-notifications` directly |
 | `Services/Payments/TicketPurchaseService.cs` | triggers `ticket-sold-notifications`/`ticket-purchased-notifications` from the Stripe webhook |

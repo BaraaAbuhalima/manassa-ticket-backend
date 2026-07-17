@@ -1,22 +1,24 @@
 using FluentValidation;
 using jett_exchange_backend.Common;
 using jett_exchange_backend.Common.ValueObjects;
+using jett_exchange_backend.Configuration;
 using jett_exchange_backend.DTOs.Requests;
 using jett_exchange_backend.Models;
+using Microsoft.Extensions.Options;
 
 namespace jett_exchange_backend.Validators;
 
 
 public class PostTicketRequestValidator : AbstractValidator<PostTicketRequest>
 {
-    public PostTicketRequestValidator()
+    public PostTicketRequestValidator(IOptions<StorageOptions> storageOptions)
     {
-        RuleFor(x => x.File)
-            .NotEmpty().WithMessage("PDF file is required")
-            .Must(file => file != null && file.Length > 0)
-            .WithMessage("File cannot be empty")
-            .Must(file => file == null || file.ContentType == "application/pdf")
-            .WithMessage("Only PDF files are allowed");
+        var expectedPrefix = storageOptions.Value.PermanentUploadPath + "/";
+
+        RuleFor(x => x.FileKey)
+            .NotEmpty().WithMessage("FileKey is required")
+            .Must(key => key.StartsWith(expectedPrefix, StringComparison.Ordinal) && key.EndsWith(".pdf", StringComparison.Ordinal))
+            .WithMessage("FileKey must be one issued by /api/ticket/upload-url");
 
         RuleFor(x => x.Price)
             .NotEmpty().WithMessage("Price is required")

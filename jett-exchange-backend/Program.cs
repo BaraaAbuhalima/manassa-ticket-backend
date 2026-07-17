@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Amazon.S3;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using jett_exchange_backend.Common;
@@ -16,8 +17,8 @@ using jett_exchange_backend.Services.TicketExtraction;
 using jett_exchange_backend.Services.TicketVerification;
 using jett_exchange_backend.Services.Tickets;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +27,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "https://jett-exchange-frontend.onrender.com")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Delete-Token");
@@ -40,6 +41,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.Configure<StorageOptions>(
     builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<R2Options>(
+    builder.Configuration.GetSection("Storage:R2"));
 builder.Services.Configure<PythonExtractorOptions>(
     builder.Configuration.GetSection("PythonTicketExtractorService"));
 builder.Services.Configure<JettApiOptions>(
@@ -56,32 +59,30 @@ builder.Services.Configure<ContactOptions>(
     builder.Configuration.GetSection("Contact"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
-if (builder.Environment.IsDevelopment())
-{
-    // SQLite's ":memory:" database only lives as long as a connection to it stays open, and
-    // "cache=shared" lets every scoped DbContext open its own connection (safe under concurrent
-    // requests) while still seeing the same in-memory data. This keep-alive connection is what
-    // keeps the shared in-memory database from being torn down between requests.
-    const string SqliteInMemoryConnectionString = "Data Source=file:JettTickets?mode=memory&cache=shared";
-    var keepAliveConnection = new SqliteConnection(SqliteInMemoryConnectionString);
-    keepAliveConnection.Open();
-    builder.Services.AddSingleton(keepAliveConnection);
-    builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(SqliteInMemoryConnectionString));
-}
-else
-{
-    var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
-        ?? throw new InvalidOperationException(
-            "ConnectionStrings:Postgres (env var ConnectionStrings__Postgres) must be set outside Development.");
-    builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(postgresConnectionString));
-}
+var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:Postgres (env var ConnectionStrings__Postgres) must be set.");
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(postgresConnectionString));
 builder.Services.AddScoped<ITicketDeleteTokenService, TicketDeleteTokenService>();
 builder.Services.AddScoped<ITicketReader, TicketReader>();
 builder.Services.AddScoped<ITicketDeleter, TicketDeleter>();
 builder.Services.AddScoped<ITicketPoster, TicketPoster>();
+builder.Services.AddScoped<ITicketProcessor, TicketProcessor>();
 builder.Services.AddScoped<ITicketPurchaseService, TicketPurchaseService>();
+builder.Services.AddHostedService<TicketReservationSweeper>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
-builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var r2 = sp.GetRequiredService<IOptions<R2Options>>().Value;
+    var config = new AmazonS3Config
+    {
+        ServiceURL = $"https://{r2.AccountId}.r2.cloudflarestorage.com",
+        ForcePathStyle = true
+    };
+
+    return new AmazonS3Client(r2.AccessKeyId, r2.SecretAccessKey, config);
+});
+builder.Services.AddScoped<IFileStorage, R2FileStorage>();
 builder.Services.AddHttpClient<ITicketVerifier, JettTicketVerifier>();
 builder.Services.AddScoped<IRandomPinGenerator, RandomPinGenerator>();
 builder.Services.AddHttpClient<ITicketDataExtractor, PythonTicketDataExtractor>();
@@ -134,16 +135,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    if (app.Environment.IsDevelopment())
-    {
-        // Dev's SQLite database is thrown away on every restart, so there's no schema to
-        // migrate from — just create it fresh instead of tracking a migrations history.
-        db.Database.EnsureCreated();
-    }
-    else
-    {
-        db.Database.Migrate();
-    }
+    db.Database.Migrate();
 }
 
 if (app.Environment.IsDevelopment())

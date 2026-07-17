@@ -6,5 +6,6 @@ namespace jett_exchange_backend.Services.Tickets;
 
 public interface ITicketPoster
 {
+    Task<ApiResponse<CreateUploadUrlResponse>> CreateUploadUrlAsync();
     Task<ApiResponse<PostTicketResponse>> PostTicketAsync(PostTicketRequest request);
 }

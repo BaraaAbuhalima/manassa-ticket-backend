@@ -1,4 +1,4 @@
-name: Tests
+name: Tests and Deploy
 
 on:
   pull_request:
@@ -7,6 +7,10 @@ on:
   push:
     branches:
       - main
+
+env:
+  API_IMAGE: ghcr.io/baraaabuhalima/jett-exchange-api
+  PYTHON_IMAGE: ghcr.io/baraaabuhalima/jett-exchange-python
 
 jobs:
   test:
@@ -26,3 +30,74 @@ jobs:
 
       - name: Test
         run: dotnet test TestJettTicketBackend/TestJettTicketBackend.csproj --configuration Release --no-restore
+
+  build-and-push:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: jett-exchange-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:latest
+            ${{ env.API_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Python service image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./pdf-ticket-extract-service
+          push: true
+          tags: |
+            ${{ env.PYTHON_IMAGE }}:latest
+            ${{ env.PYTHON_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GHCR_USER,GHCR_TOKEN
+          script: |
+            set -e
+            cd /opt/jett-exchange-backend
+            git pull origin main
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose -f compose.prod.yaml pull
+            docker compose -f compose.prod.yaml up -d
+            docker logout ghcr.io
+            docker image prune -f
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -53,6 +53,7 @@ public class TicketReader(AppDbContext dbContext) : ITicketReader
                 TotalPriceUsd = ticket.TotalPriceUsd,
                 TotalPriceJod = ticket.TotalPriceJod,
                 Status = ticket.Status,
+                RejectionReason = ticket.RejectionReason,
                 SoldAt = ticket.SoldAt,
                 SellerEmail = ticket.SellerEmail,
                 SellerPhone = ticket.SellerPhone,

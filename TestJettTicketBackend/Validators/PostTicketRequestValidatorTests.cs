@@ -1,22 +1,26 @@
 using jett_exchange_backend.Common.ValueObjects;
+using jett_exchange_backend.Configuration;
 using jett_exchange_backend.DTOs.Requests;
 using jett_exchange_backend.Models;
 using jett_exchange_backend.Validators;
 using FluentAssertions;
-using TestJettTicketBackend.TestHelpers;
+using Microsoft.Extensions.Options;
 
 namespace TestJettTicketBackend.Validators;
 
 public class PostTicketRequestValidatorTests
 {
+    private const string Prefix = "uploads/permanentTicketPdfs";
+
     private PostTicketRequestValidator _sut = null!;
 
     [SetUp]
-    public void SetUp() => _sut = new PostTicketRequestValidator();
+    public void SetUp() => _sut = new PostTicketRequestValidator(
+        Options.Create(new StorageOptions { PermanentUploadPath = Prefix }));
 
     private static PostTicketRequest ValidRequest() => new()
     {
-        File = FakeFormFile.CreatePdf(),
+        FileKey = $"{Prefix}/{Guid.NewGuid()}.pdf",
         SellerEmail = "seller@example.com",
         SellerPhone = "+1234567890",
         Price = 10m,
@@ -49,27 +53,39 @@ public class PostTicketRequestValidatorTests
     }
 
     [Test]
-    public void Validate_Fails_WhenFileIsEmpty()
+    public void Validate_Fails_WhenFileKeyIsEmpty()
     {
         var request = ValidRequest();
-        request.File = FakeFormFile.CreatePdf(content: []);
+        request.FileKey = "";
 
         var result = _sut.Validate(request);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "File");
+        result.Errors.Should().Contain(e => e.PropertyName == "FileKey");
     }
 
     [Test]
-    public void Validate_Fails_WhenFileIsNotPdf()
+    public void Validate_Fails_WhenFileKeyHasWrongPrefix()
     {
         var request = ValidRequest();
-        request.File = FakeFormFile.CreatePdf(contentType: "image/png");
+        request.FileKey = "some/other/path/file.pdf";
 
         var result = _sut.Validate(request);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "File");
+        result.Errors.Should().Contain(e => e.PropertyName == "FileKey");
+    }
+
+    [Test]
+    public void Validate_Fails_WhenFileKeyDoesNotEndInPdf()
+    {
+        var request = ValidRequest();
+        request.FileKey = $"{Prefix}/{Guid.NewGuid()}.png";
+
+        var result = _sut.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "FileKey");
     }
 
     [Test]
@@ -111,7 +127,7 @@ public class PostTicketRequestValidatorTests
     [Test]
     public void Validate_Fails_WhenPaymentInfoRequestIsNull()
     {
-        // Simulates what real [FromForm] model binding produces when the client
+        // Simulates what real [FromBody] model binding produces when the client
         // omits the field entirely: "required" is compile-time only, so the
         // property can still be null at runtime.
         var request = ValidRequest();

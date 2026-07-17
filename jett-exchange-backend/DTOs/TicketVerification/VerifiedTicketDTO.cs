@@ -39,7 +39,10 @@ public class VerifiedTicketDTO
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
         var time = TimeSpan.Parse(response.Details.Data.Booking.Travel_time_from);
 
-        TicketDateTime = date.Date.Add(time);
+        // TicketDateTime is stored as the bus's wall-clock travel date/time in a
+        // "timestamp without time zone" column, so the Kind=Utc left over from the
+        // deterministic parsing above must be stripped before it reaches the DbContext.
+        TicketDateTime = DateTime.SpecifyKind(date.Date.Add(time), DateTimeKind.Unspecified);
 
         Price = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture) * CurrencyConversion.JodToUsdRate;
 

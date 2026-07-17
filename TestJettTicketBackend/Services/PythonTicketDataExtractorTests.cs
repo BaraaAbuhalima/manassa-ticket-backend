@@ -30,7 +30,8 @@ public class PythonTicketDataExtractorTests
         var sut = CreateSut(_ => JsonResponse(HttpStatusCode.OK,
             """{"Success":true,"TicketId":"TCK-1","BarCode":"BC123"}"""), out _);
 
-        var result = await sut.ExtractTicketAsync("/tmp/ticket.pdf");
+        using var stream = new MemoryStream([1, 2, 3]);
+        var result = await sut.ExtractTicketAsync(stream, "ticket.pdf");
 
         result.Success.Should().BeTrue();
         result.TicketId.Should().Be("TCK-1");
@@ -38,17 +39,27 @@ public class PythonTicketDataExtractorTests
     }
 
     [Test]
-    public async Task ExtractTicketAsync_UrlEncodesFilePath_AndPostsToExpectedRoute()
+    public async Task ExtractTicketAsync_PostsFileContentsAsMultipartForm_ToExpectedRoute()
     {
-        var sut = CreateSut(_ => JsonResponse(HttpStatusCode.OK,
-            """{"Success":true,"TicketId":"T","BarCode":"B"}"""), out var handler);
+        byte[]? uploadedBytes = null;
+        var sut = CreateSut(request =>
+        {
+            // The production code disposes the MultipartFormDataContent once PostAsync
+            // returns, so the request body must be captured here, while it's still alive.
+            uploadedBytes = request.Content!.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+            return JsonResponse(HttpStatusCode.OK, """{"Success":true,"TicketId":"T","BarCode":"B"}""");
+        }, out var handler);
 
-        await sut.ExtractTicketAsync("/tmp/some folder/ticket.pdf");
+        using var stream = new MemoryStream([1, 2, 3, 4]);
+        await sut.ExtractTicketAsync(stream, "ticket.pdf");
 
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
-        handler.LastRequest.RequestUri!.PathAndQuery.Should().Be(
-            "/extract-ticket-pdf-info?file_path=%2Ftmp%2Fsome%20folder%2Fticket.pdf");
+        handler.LastRequest.RequestUri!.PathAndQuery.Should().Be("/extract-ticket-pdf-info");
+        handler.LastRequest.Content.Should().BeOfType<MultipartFormDataContent>();
+
+        uploadedBytes.Should().NotBeNull();
+        Encoding.UTF8.GetString(uploadedBytes!).Should().Contain("ticket.pdf");
     }
 
     [Test]
@@ -58,8 +69,9 @@ public class PythonTicketDataExtractorTests
         // so a non-2xx response from the Python service surfaces as an unhandled
         // HttpRequestException rather than a graceful PdfTicketDTO { Success = false }.
         var sut = CreateSut(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError), out _);
+        using var stream = new MemoryStream([1, 2, 3]);
 
-        var act = async () => await sut.ExtractTicketAsync("/tmp/ticket.pdf");
+        var act = async () => await sut.ExtractTicketAsync(stream, "ticket.pdf");
 
         act.Should().ThrowAsync<HttpRequestException>();
     }
@@ -72,8 +84,9 @@ public class PythonTicketDataExtractorTests
         // (the more common JSON convention) fails instead of binding leniently.
         var sut = CreateSut(_ => JsonResponse(HttpStatusCode.OK,
             """{"success":true,"ticketId":"TCK-1","barCode":"BC123"}"""), out _);
+        using var stream = new MemoryStream([1, 2, 3]);
 
-        var act = async () => await sut.ExtractTicketAsync("/tmp/ticket.pdf");
+        var act = async () => await sut.ExtractTicketAsync(stream, "ticket.pdf");
 
         act.Should().ThrowAsync<System.Text.Json.JsonException>();
     }

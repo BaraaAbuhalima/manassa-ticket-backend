@@ -2,11 +2,17 @@ using System.Net;
 using System.Net.Mail;
 using System.Net.Mime;
 using jett_exchange_backend.Configuration;
+
+using jett_exchange_backend.Services.FileStorage;
 using Microsoft.Extensions.Options;
 
 namespace jett_exchange_backend.Services.Email;
 
-public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSender> logger) : IEmailSender
+public class SmtpEmailSender(
+    IOptions<SmtpOptions> options,
+    IFileStorage fileStorage,
+    ILogger<SmtpEmailSender> logger)
+    : IEmailSender
 {
     public async Task SendAsync(
         string toEmail,
@@ -28,11 +34,13 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
 
         using var message = new MailMessage(options.Value.FromAddress, toEmail, subject, body);
 
+        Stream? attachmentStream = null;
         if (attachmentPath is not null)
         {
-            if (File.Exists(attachmentPath))
+            attachmentStream = await fileStorage.OpenReadAsync(attachmentPath);
+            if (attachmentStream is not null)
             {
-                var attachment = new Attachment(attachmentPath, MediaTypeNames.Application.Pdf);
+                var attachment = new Attachment(attachmentStream, MediaTypeNames.Application.Pdf);
                 if (attachmentFileName is not null)
                 {
                     attachment.Name = attachmentFileName;
@@ -43,12 +51,22 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
             else
             {
                 logger.LogWarning(
-                    "Attachment file {AttachmentPath} not found; sending email to {ToEmail} without it",
+                    "Attachment {AttachmentPath} not found in storage; sending email to {ToEmail} without it",
                     attachmentPath, toEmail);
             }
         }
 
-        await client.SendMailAsync(message, cancellationToken);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+        }
+        finally
+        {
+            if (attachmentStream is not null)
+            {
+                await attachmentStream.DisposeAsync();
+            }
+        }
 
         logger.LogInformation("Sent email to {ToEmail} with subject '{Subject}'", toEmail, subject);
     }

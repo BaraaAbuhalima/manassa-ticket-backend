@@ -1,8 +1,10 @@
 using jett_exchange_backend.Common;
 using jett_exchange_backend.Data;
 using jett_exchange_backend.DTOs.Requests;
+using jett_exchange_backend.DTOs.Responses;
 using jett_exchange_backend.Messaging;
 using jett_exchange_backend.Models;
+using jett_exchange_backend.Services.FileStorage;
 using Microsoft.EntityFrameworkCore;
 
 namespace jett_exchange_backend.Services.Tickets;
@@ -11,9 +13,47 @@ public class TicketDeleter(
     AppDbContext dbContext,
     ITicketDeleteTokenService deleteTokenService,
     ITicketAvailablePublisher availablePublisher,
+    IFileStorage fileStorage,
     ILogger<TicketDeleter> logger)
     : ITicketDeleter
 {
+    private static readonly TimeSpan DownloadUrlExpiry = TimeSpan.FromMinutes(15);
+
+    public async Task<ApiResponse<TicketFileUrlResponse>> GetFileUrlByTokenAsync(string token)
+    {
+        var ticketId = deleteTokenService.ValidateAndGetTicketId(token);
+        if (ticketId is null)
+        {
+            return new ApiResponse<TicketFileUrlResponse>
+            {
+                StatusCode = StatusCodes.Status401Unauthorized,
+                Success = false,
+                Message = "Invalid or expired delete token",
+                Errors = ["Invalid or expired delete token"],
+                Links = new Dictionary<string, string>
+                {
+                    { "home", "/home" },
+                }
+            };
+        }
+
+        var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == ticketId);
+        if (ticket is null)
+        {
+            return TicketResponses.NotFound<TicketFileUrlResponse>();
+        }
+
+        var downloadUrl = await fileStorage.CreatePresignedDownloadUrlAsync(ticket.TicketFilePath, DownloadUrlExpiry);
+
+        return new ApiResponse<TicketFileUrlResponse>
+        {
+            StatusCode = StatusCodes.Status200OK,
+            Success = true,
+            Message = "Download URL created",
+            Data = new TicketFileUrlResponse { DownloadUrl = downloadUrl }
+        };
+    }
+
     public async Task<ApiResponse<string>> DeleteByIdAsync(Guid id)
     {
         var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == id);
@@ -76,6 +116,24 @@ public class TicketDeleter(
                 Success = false,
                 Message = "Ticket has already been sold and cannot be deleted",
                 Errors = ["Ticket has already been sold and cannot be deleted"],
+                Links = new Dictionary<string, string>
+                {
+                    { "home", "/home" },
+                }
+            };
+        }
+
+        if (ticket.Status == TicketSellStatus.Reserved)
+        {
+            // A buyer's payment may be in flight against this exact row; deleting it here
+            // would let the seller pull the ticket out from under a purchase that then
+            // succeeds with no ticket to deliver.
+            return new ApiResponse<string>
+            {
+                StatusCode = StatusCodes.Status409Conflict,
+                Success = false,
+                Message = "Ticket is currently being purchased and cannot be deleted",
+                Errors = ["Ticket is currently being purchased and cannot be deleted"],
                 Links = new Dictionary<string, string>
                 {
                     { "home", "/home" },
@@ -219,7 +277,7 @@ public class TicketDeleter(
             await availablePublisher.PublishAsync(new TicketAvailableMessage
             {
                 TicketId = ticket.Id,
-                Date = DateOnly.FromDateTime(ticket.TicketDateTime)
+                Date = DateOnly.FromDateTime(ticket.TicketDateTime!.Value)
             });
         }
         catch (Exception ex)

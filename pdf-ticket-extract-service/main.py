@@ -1,9 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 import fitz
 import cv2
 import numpy as np
 import re
-import os
 from datetime import datetime
 
 app = FastAPI()
@@ -54,8 +53,8 @@ def decode_qr(image):
     return None
 
 
-def read_ticket(pdf_path):
-    doc = fitz.open(pdf_path)
+def read_ticket(pdf_bytes):
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     # Extract all text
     text = ""
@@ -111,16 +110,10 @@ def read_ticket(pdf_path):
 
 
 @app.post("/extract-ticket-pdf-info")
-async def process_pdf(file_path: str):
+async def process_pdf(file: UploadFile = File(...)):
+    pdf_bytes = await file.read()
 
-    full_path = file_path
-
-    if not os.path.exists(full_path):
-        return {
-            "error": "File not found"
-        }
-
-    result = read_ticket(full_path)
+    result = read_ticket(pdf_bytes)
 
     return {
         "TicketId": result["ticket"],

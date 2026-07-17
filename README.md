@@ -17,8 +17,9 @@ All config that differs between environments (secrets, and dev vs production beh
 in `.env`, not in source. `appsettings.json` only holds non-secret defaults.
 
 1. Copy `.env.example` to `.env`.
-2. Fill in real values for the `Stripe__*`, `Jwt__SigningKey`, `RabbitMq__*`, and `Smtp__*`
-   entries — see the comments in `.env.example` for where each one comes from.
+2. Fill in real values for the `Stripe__*`, `Jwt__SigningKey`, `RabbitMq__*`, `Smtp__*`, and
+   `Storage__R2__*` entries — see the comments in `.env.example` for where each one comes from,
+   and [R2_STORAGE.md](R2_STORAGE.md) for setting up the Cloudflare R2 buckets and API tokens.
 3. Set `ASPNETCORE_ENVIRONMENT` to `Development` or `Production`.
 4. Set `COMPOSE_PROFILES=dev` to also start `rabbitmq` (local broker), `mailhog` (fake SMTP),
    and `stripe-cli` (webhook forwarder) for local testing. Leave it blank/unset in production —

@@ -8,7 +8,6 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using TestJettTicketBackend.TestHelpers;
 
 namespace TestJettTicketBackend.Controllers;
 
@@ -353,7 +352,7 @@ public class TicketControllerTests
     {
         var request = new PostTicketRequest
         {
-            File = FakeFormFile.CreatePdf(),
+            FileKey = "permanent/abc.pdf",
             SellerEmail = "seller@example.com",
             SellerPhone = "+1234567890",
             Price = 10m,
@@ -363,16 +362,16 @@ public class TicketControllerTests
         };
         var response = new ApiResponse<PostTicketResponse>
         {
-            StatusCode = 200,
+            StatusCode = 202,
             Success = true,
-            Data = new PostTicketResponse { TicketId = Guid.NewGuid(), RefPin = "PIN" }
+            Data = new PostTicketResponse { TicketId = Guid.NewGuid(), RefPin = "PIN", Status = TicketSellStatus.Processing }
         };
         _poster.Setup(s => s.PostTicketAsync(request)).ReturnsAsync(response);
 
         var result = await _sut.PostTicket(request);
 
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-        objectResult.StatusCode.Should().Be(200);
+        objectResult.StatusCode.Should().Be(202);
         objectResult.Value.Should().BeSameAs(response);
         _poster.Verify(s => s.PostTicketAsync(request), Times.Once);
     }
@@ -382,7 +381,7 @@ public class TicketControllerTests
     {
         var request = new PostTicketRequest
         {
-            File = FakeFormFile.CreatePdf(),
+            FileKey = "permanent/abc.pdf",
             SellerEmail = "seller@example.com",
             SellerPhone = "+1234567890",
             Price = 10m,
@@ -396,5 +395,56 @@ public class TicketControllerTests
         var result = await _sut.PostTicket(request);
 
         result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(500);
+    }
+
+    [Test]
+    public async Task CreateUploadUrl_ReturnsServiceStatusCodeAndBody()
+    {
+        var response = new ApiResponse<CreateUploadUrlResponse>
+        {
+            StatusCode = 200,
+            Success = true,
+            Data = new CreateUploadUrlResponse { FileKey = "permanent/abc.pdf", UploadUrl = "https://r2.example/upload" }
+        };
+        _poster.Setup(s => s.CreateUploadUrlAsync()).ReturnsAsync(response);
+
+        var result = await _sut.CreateUploadUrl();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(200);
+        objectResult.Value.Should().BeSameAs(response);
+        _poster.Verify(s => s.CreateUploadUrlAsync(), Times.Once);
+    }
+
+    [Test]
+    public async Task GetFileUrl_ReturnsServiceStatusCodeAndBody()
+    {
+        SetAuthorizationHeader("Bearer valid-token");
+        var response = new ApiResponse<TicketFileUrlResponse>
+        {
+            StatusCode = 200,
+            Success = true,
+            Data = new TicketFileUrlResponse { DownloadUrl = "https://r2.example/download" }
+        };
+        _deleter.Setup(s => s.GetFileUrlByTokenAsync("valid-token")).ReturnsAsync(response);
+
+        var result = await _sut.GetFileUrl();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(200);
+        objectResult.Value.Should().BeSameAs(response);
+        _deleter.Verify(s => s.GetFileUrlByTokenAsync("valid-token"), Times.Once);
+    }
+
+    [Test]
+    public async Task GetFileUrl_PropagatesUnauthorizedStatusCode_ForInvalidToken()
+    {
+        SetAuthorizationHeader("Bearer bad-token");
+        var response = new ApiResponse<TicketFileUrlResponse> { StatusCode = 401, Success = false };
+        _deleter.Setup(s => s.GetFileUrlByTokenAsync("bad-token")).ReturnsAsync(response);
+
+        var result = await _sut.GetFileUrl();
+
+        result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(401);
     }
 }

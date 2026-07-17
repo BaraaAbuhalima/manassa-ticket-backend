@@ -67,6 +67,13 @@ public class TicketController(
         return StatusCode(response.StatusCode, response);
     }
 
+    [HttpGet("file-url")]
+    public async Task<IActionResult> GetFileUrl()
+    {
+        var response = await ticketDeleter.GetFileUrlByTokenAsync(ExtractBearerToken());
+        return StatusCode(response.StatusCode, response);
+    }
+
     private string ExtractBearerToken()
     {
         string? header = Request.Headers.Authorization;
@@ -77,8 +84,15 @@ public class TicketController(
             : string.Empty;
     }
 
+    [HttpPost("upload-url")]
+    public async Task<IActionResult> CreateUploadUrl()
+    {
+        var response = await ticketPoster.CreateUploadUrlAsync();
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpPost("")]
-    public async Task<IActionResult> PostTicket([FromForm] PostTicketRequest request)
+    public async Task<IActionResult> PostTicket([FromBody] PostTicketRequest request)
     {
         var response = await ticketPoster.PostTicketAsync(request);
         return StatusCode(response.StatusCode, response);

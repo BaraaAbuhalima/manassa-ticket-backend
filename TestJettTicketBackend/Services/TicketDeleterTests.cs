@@ -3,6 +3,7 @@ using jett_exchange_backend.Data;
 using jett_exchange_backend.DTOs.Requests;
 using jett_exchange_backend.Messaging;
 using jett_exchange_backend.Models;
+using jett_exchange_backend.Services.FileStorage;
 using jett_exchange_backend.Services.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +18,7 @@ public class TicketDeleterTests
     private AppDbContext _dbContext = null!;
     private TicketDeleteTokenService _deleteTokenService = null!;
     private Mock<ITicketAvailablePublisher> _availablePublisher = null!;
+    private Mock<IFileStorage> _fileStorage = null!;
     private TicketDeleter _sut = null!;
 
     [SetUp]
@@ -26,7 +28,8 @@ public class TicketDeleterTests
         _dbContext = InMemoryDbContextFactory.Create(_databaseName);
         _deleteTokenService = TestTicketDeleteTokenService.Create();
         _availablePublisher = new Mock<ITicketAvailablePublisher>();
-        _sut = new TicketDeleter(_dbContext, _deleteTokenService, _availablePublisher.Object, NullLogger<TicketDeleter>.Instance);
+        _fileStorage = new Mock<IFileStorage>();
+        _sut = new TicketDeleter(_dbContext, _deleteTokenService, _availablePublisher.Object, _fileStorage.Object, NullLogger<TicketDeleter>.Instance);
     }
 
     [TearDown]
@@ -43,6 +46,7 @@ public class TicketDeleterTests
         TicketId = "TCK-1",
         OriginalOwnerName = "Owner",
         OriginalOwnerPassportNumber = "P1",
+        TicketDateTime = DateTime.UtcNow,
         NumberOfBags = 1,
         TotalPriceJod = 10m,
         TotalPriceUsd = 14.3m,
@@ -154,7 +158,7 @@ public class TicketDeleterTests
 
         // A token forged with an unrelated signing key must not be accepted.
         var forgedToken = otherService.GenerateToken(ticket.Id);
-        var tamperedSut = new TicketDeleter(_dbContext, TestTicketDeleteTokenService.Create(), _availablePublisher.Object, NullLogger<TicketDeleter>.Instance);
+        var tamperedSut = new TicketDeleter(_dbContext, TestTicketDeleteTokenService.Create(), _availablePublisher.Object, _fileStorage.Object, NullLogger<TicketDeleter>.Instance);
 
         var result = await tamperedSut.DeleteByTokenAsync(forgedToken.Replace(forgedToken.Split('.')[2], "tampered-signature"));
 
@@ -411,5 +415,43 @@ public class TicketDeleterTests
         var persisted = GetPersistedTicket(ticket.Id)!;
         persisted.TotalPriceJod.Should().Be(10m);
         persisted.TotalPriceUsd.Should().Be(14.3m);
+    }
+
+    [Test]
+    public async Task GetFileUrlByTokenAsync_ReturnsPresignedUrl_WhenTokenValid()
+    {
+        var ticket = CreateTicket(pin: "FILE-1");
+        ticket.TicketFilePath = "permanent/the-file.pdf";
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+        var token = _deleteTokenService.GenerateToken(ticket.Id);
+        _fileStorage.Setup(s => s.CreatePresignedDownloadUrlAsync("permanent/the-file.pdf", It.IsAny<TimeSpan>()))
+            .ReturnsAsync("https://r2.example/download");
+
+        var result = await _sut.GetFileUrlByTokenAsync(token);
+
+        result.Success.Should().BeTrue();
+        result.StatusCode.Should().Be(200);
+        result.Data!.DownloadUrl.Should().Be("https://r2.example/download");
+    }
+
+    [Test]
+    public async Task GetFileUrlByTokenAsync_ReturnsNotFound_WhenTicketNoLongerExists()
+    {
+        var token = _deleteTokenService.GenerateToken(Guid.NewGuid());
+
+        var result = await _sut.GetFileUrlByTokenAsync(token);
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
+    }
+
+    [Test]
+    public async Task GetFileUrlByTokenAsync_ReturnsUnauthorized_WhenTokenIsMalformed()
+    {
+        var result = await _sut.GetFileUrlByTokenAsync("not-a-real-token");
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
     }
 }

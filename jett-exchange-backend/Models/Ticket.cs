@@ -14,23 +14,24 @@ public class Ticket
 
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
+    // Null until the background job extracts/verifies the PDF (Status == Processing until then).
     [MaxLength(30)]
-    public required string TicketId { get; set; }
+    public string? TicketId { get; set; }
     [MaxLength(50)]
-    public required string OriginalOwnerName { get; set; }
+    public string? OriginalOwnerName { get; set; }
     [MaxLength(20)]
-    public required string OriginalOwnerPassportNumber { get; set; }
+    public string? OriginalOwnerPassportNumber { get; set; }
 
-    public DateTime TicketDateTime { get; set; }
+    public DateTime? TicketDateTime { get; set; }
 
 
-    public required int NumberOfBags { get; set; }
+    public int? NumberOfBags { get; set; }
     [Column(TypeName = "decimal(10,2)")]
     public required decimal TotalPriceUsd { get; set; }
     [Column(TypeName = "decimal(10,2)")]
     public required decimal TotalPriceJod { get; set; }
     [Column(TypeName = "decimal(10,2)")]
-    public required decimal OriginalPrice { get; init; }
+    public decimal? OriginalPrice { get; set; }
     [MaxLength(100)]
     public required string SellerName { get; set; }
 
@@ -47,8 +48,11 @@ public class Ticket
     public required string Pin { get; set; }
     public required TicketSellStatus Status { get; set; }
     public DateTime? SoldAt { get; set; }
+    public DateTime? ReservedAt { get; set; }
     [MaxLength(100)]
     public required string TicketFilePath { get; set; }
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
 
     [MaxLength(50)]
     public string? BuyerName { get; set; }

@@ -10,6 +10,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT
       - ConnectionStrings__Postgres
+      - PythonTicketExtractorService__BaseUrl
       - Stripe__SecretKey
       - Stripe__PublishableKey
       - Stripe__WebhookSecret
@@ -21,15 +22,15 @@ services:
       - Smtp__Username
       - Smtp__Password
       - Smtp__FromAddress
-    volumes:
-      - ../../uploads:/app/uploads
+      - Storage__R2__AccountId
+      - Storage__R2__AccessKeyId
+      - Storage__R2__SecretAccessKey
+      - Storage__R2__BucketName
 
   python-service:
     build: ./pdf-ticket-extract-service
     ports:
       - "8000:8000"
-    volumes:
-      - ../../uploads:/app/uploads
 
   # Dev-only extras (started when the "dev" profile is active, e.g. via scripts/dev.ps1
   # or COMPOSE_PROFILES=dev in .env). Not part of the production stack.

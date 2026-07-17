@@ -4,7 +4,7 @@ namespace jett_exchange_backend.DTOs.Requests;
 
 public class PostTicketRequest
 {
-    public required IFormFile File { get; set; }
+    public required string FileKey { get; set; }
     public required string SellerEmail { get; set; }
     public required string SellerPhone { get; set; }
     public decimal Price { get; set; }

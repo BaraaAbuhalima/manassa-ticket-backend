@@ -20,16 +20,40 @@ public class TicketPurchaseService(
     ILogger<TicketPurchaseService> logger)
     : ITicketPurchaseService
 {
+    // How long a buyer gets to complete checkout before the hold is released back to
+    // ForSale. Shared with TicketReservationSweeper, which does the actual release.
+    public static readonly TimeSpan ReservationTtl = TimeSpan.FromMinutes(15);
+
     public async Task<ApiResponse<PurchaseTicketResponse>> CreatePaymentIntentAsync(Guid ticketId, PurchaseTicketRequest request)
     {
-        var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == ticketId);
-        if (ticket is null)
-        {
-            return TicketResponses.NotFound<PurchaseTicketResponse>();
-        }
+        var reservedAt = DateTime.UtcNow;
+        var reservationCutoff = reservedAt - ReservationTtl;
 
-        if (ticket.Status != TicketSellStatus.ForSale)
+        // Claim the ticket with a single conditional UPDATE instead of a read-then-write:
+        // the eligibility check (ForSale, or a Reserved hold that's expired) and the flip
+        // to Reserved happen as one statement, so Postgres serializes concurrent claims on
+        // the same row. Only one of two simultaneous buyers can ever affect a row here;
+        // the other gets 0 rows affected and knows someone beat them to it. This closes the
+        // race where both could pass an "is it ForSale?" check and each get a PaymentIntent
+        // for the same ticket.
+        var claimed = await dbContext.Tickets
+            .Where(t => t.Id == ticketId &&
+                (t.Status == TicketSellStatus.ForSale ||
+                 (t.Status == TicketSellStatus.Reserved && t.ReservedAt < reservationCutoff)))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(t => t.Status, TicketSellStatus.Reserved)
+                .SetProperty(t => t.ReservedAt, reservedAt)
+                .SetProperty(t => t.BuyerName, request.BuyerName)
+                .SetProperty(t => t.BuyerEmail, request.BuyerEmail));
+
+        if (claimed == 0)
         {
+            var exists = await dbContext.Tickets.AnyAsync(t => t.Id == ticketId);
+            if (!exists)
+            {
+                return TicketResponses.NotFound<PurchaseTicketResponse>();
+            }
+
             return new ApiResponse<PurchaseTicketResponse>
             {
                 StatusCode = StatusCodes.Status409Conflict,
@@ -43,28 +67,44 @@ public class TicketPurchaseService(
             };
         }
 
+        var ticket = await dbContext.Tickets.FirstAsync(t => t.Id == ticketId);
         var currency = stripeOptions.Value.Currency;
         var amountInSmallestUnit = (long)Math.Round(ticket.TotalPriceUsd * 100, MidpointRounding.AwayFromZero);
 
-        var paymentIntentService = new PaymentIntentService();
-        var paymentIntent = await paymentIntentService.CreateAsync(new PaymentIntentCreateOptions
+        PaymentIntent paymentIntent;
+        try
         {
-            Amount = amountInSmallestUnit,
-            Currency = currency,
-            ReceiptEmail = request.BuyerEmail,
-            Metadata = new Dictionary<string, string>
+            var paymentIntentService = new PaymentIntentService();
+            paymentIntent = await paymentIntentService.CreateAsync(new PaymentIntentCreateOptions
             {
-                { "ticketId", ticket.Id.ToString() },
-                { "buyerEmail", request.BuyerEmail }
-            },
-            AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
-            {
-                Enabled = true
-            }
-        });
+                Amount = amountInSmallestUnit,
+                Currency = currency,
+                ReceiptEmail = request.BuyerEmail,
+                Metadata = new Dictionary<string, string>
+                {
+                    { "ticketId", ticket.Id.ToString() },
+                    { "buyerEmail", request.BuyerEmail }
+                },
+                AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
+                {
+                    Enabled = true
+                }
+            });
+        }
+        catch
+        {
+            // Give the hold back immediately rather than making the ticket unavailable
+            // for the full TTL just because Stripe rejected the request.
+            await dbContext.Tickets
+                .Where(t => t.Id == ticketId && t.Status == TicketSellStatus.Reserved && t.ReservedAt == reservedAt)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(t => t.Status, TicketSellStatus.ForSale)
+                    .SetProperty(t => t.ReservedAt, (DateTime?)null)
+                    .SetProperty(t => t.BuyerName, (string?)null)
+                    .SetProperty(t => t.BuyerEmail, (string?)null));
+            throw;
+        }
 
-        ticket.BuyerName = request.BuyerName;
-        ticket.BuyerEmail = request.BuyerEmail;
         ticket.StripePaymentIntentId = paymentIntent.Id;
         dbContext.Tickets.Update(ticket);
         await dbContext.SaveChangesAsync();
@@ -126,10 +166,19 @@ public class TicketPurchaseService(
                 logger.LogInformation(
                     "Ignoring Stripe event {EventType} for ticket {TicketId}", stripeEvent.Type, ticket.Id);
             }
-            else if (ticket.Status != TicketSellStatus.ForSale)
+            else if (ticket.Status == TicketSellStatus.Sold)
             {
+                // Stripe webhooks are at-least-once delivery; a redelivered
+                // payment_intent.succeeded for an already-sold ticket is expected, not an error.
+                logger.LogInformation(
+                    "Ignoring duplicate payment_intent.succeeded for already-sold ticket {TicketId}", ticket.Id);
+            }
+            else if (ticket.Status != TicketSellStatus.Reserved)
+            {
+                // The reservation must have expired and been released (or the ticket was
+                // otherwise deleted/reposted) before this payment completed.
                 logger.LogWarning(
-                    "Payment succeeded for ticket {TicketId} but it was already {Status}; not marking as sold",
+                    "Payment succeeded for ticket {TicketId} but it was {Status}, not Reserved; not marking as sold",
                     ticket.Id, ticket.Status);
             }
             else
@@ -161,7 +210,7 @@ public class TicketPurchaseService(
     {
         try
         {
-            var date = ticket.TicketDateTime.ToString("yyyy-MM-dd");
+            var date = ticket.TicketDateTime!.Value.ToString("yyyy-MM-dd");
 
             await soldNotificationPublisher.PublishAsync(new SendEmailMessage
             {

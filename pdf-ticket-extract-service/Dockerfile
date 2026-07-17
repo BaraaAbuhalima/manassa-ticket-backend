@@ -13,9 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Create Uploads folder inside container
-RUN mkdir -p Uploads
-
 # Expose FastAPI port
 EXPOSE 8000
 

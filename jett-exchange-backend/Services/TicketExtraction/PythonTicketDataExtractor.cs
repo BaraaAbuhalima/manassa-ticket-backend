@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text.Json;
 using jett_exchange_backend.Configuration;
 using jett_exchange_backend.DTOs.TicketExtraction;
@@ -17,13 +18,14 @@ public class PythonTicketDataExtractor : ITicketDataExtractor
         _client.BaseAddress = new Uri(options.Value.BaseUrl);
     }
 
-    public async Task<PdfTicketDTO> ExtractTicketAsync(string filePath)
+    public async Task<PdfTicketDTO> ExtractTicketAsync(Stream fileStream, string fileName)
     {
-        var encodedPath = Uri.EscapeDataString(filePath);
+        using var content = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(streamContent, "file", fileName);
 
-        var response = await _client.PostAsync(
-            $"extract-ticket-pdf-info?file_path={encodedPath}",
-            content: null);
+        var response = await _client.PostAsync("extract-ticket-pdf-info", content);
 
         response.EnsureSuccessStatusCode();
 

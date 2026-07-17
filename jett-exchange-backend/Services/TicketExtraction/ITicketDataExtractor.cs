@@ -4,5 +4,5 @@ namespace jett_exchange_backend.Services.TicketExtraction;
 
 public interface ITicketDataExtractor
 {
-    Task<PdfTicketDTO> ExtractTicketAsync(string filePath);
+    Task<PdfTicketDTO> ExtractTicketAsync(Stream fileStream, string fileName);
 }
