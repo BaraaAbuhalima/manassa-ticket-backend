@@ -1,0 +1,15 @@
+# Caddy reverse proxy config.
+# Replace YOURDOMAIN.com below with your real domain.
+# Caddy automatically obtains + renews Let's Encrypt HTTPS certificates
+# for any domain listed here, as long as its DNS points at this VPS.
+
+# Backend API -> the "api" container on its internal port 8080.
+api.YOURDOMAIN.com {
+    reverse_proxy api:8080
+}
+
+# Frontend -> the "frontend" container. Uncomment once the frontend
+# container is deployed into this compose stack.
+# YOURDOMAIN.com {
+#     reverse_proxy frontend:80
+# }

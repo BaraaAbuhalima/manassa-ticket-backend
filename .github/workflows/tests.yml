@@ -82,17 +82,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Debug secret presence
-        env:
-          KEY: ${{ secrets.VPS_SSH_KEY }}
-          HOST: ${{ secrets.VPS_HOST }}
-          USER: ${{ secrets.VPS_USER }}
-        run: |
-          echo "VPS_SSH_KEY length: ${#KEY}"
-          echo "VPS_SSH_KEY first line: $(printf '%s' "$KEY" | head -n1)"
-          echo "VPS_SSH_KEY last line:  $(printf '%s' "$KEY" | tail -n1)"
-          echo "VPS_HOST length: ${#HOST}"
-          echo "VPS_USER value: $USER"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Push only the config the server needs — no source repo on the VPS.
+      # The container images are the deployable unit (pulled from GHCR below).
+      - name: Copy config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "compose.prod.yaml,Caddyfile"
+          target: /opt/jett-exchange-backend
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -104,7 +106,6 @@ jobs:
           script: |
             set -e
             cd /opt/jett-exchange-backend
-            git pull origin main
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker compose -f compose.prod.yaml pull
             docker compose -f compose.prod.yaml up -d

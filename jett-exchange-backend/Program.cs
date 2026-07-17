@@ -16,6 +16,7 @@ using jett_exchange_backend.Services.Subscriptions;
 using jett_exchange_backend.Services.TicketExtraction;
 using jett_exchange_backend.Services.TicketVerification;
 using jett_exchange_backend.Services.Tickets;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -27,7 +28,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://manassa-ticket.com")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Delete-Token");
@@ -137,6 +140,18 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
+
+// Trust the X-Forwarded-* headers set by the Caddy reverse proxy so the app
+// sees the original HTTPS scheme. Without this, UseHttpsRedirection would loop
+// forever behind the proxy. KnownProxies/Networks are cleared because the proxy
+// is another Docker container on an arbitrary internal IP.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 if (app.Environment.IsDevelopment())
 {

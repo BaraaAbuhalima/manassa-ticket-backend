@@ -40,3 +40,22 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+
+  # Reverse proxy: terminates HTTPS and routes domains to the right container.
+  # api.YOURDOMAIN.com -> api:8080  (see Caddyfile)
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:
