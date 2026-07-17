@@ -1,19 +1,29 @@
 # Caddy reverse proxy config.
-# Replace YOURDOMAIN.com below with your real domain.
 # Caddy automatically obtains + renews Let's Encrypt HTTPS certificates
 # for any domain listed here, as long as its DNS points at this VPS.
 
-# Backend API -> the "api" container on its internal port 8080.
-api.manassa-ticket.com {
-    reverse_proxy api:8080
-}
-api.jett-ticket.duckdns.org {
-    reverse_proxy api:8080
-}
+# --- Active domains (DuckDNS) ---
+
 # Frontend -> the "frontend" container (nginx serving the built SPA on port 80).
-manassa-ticket.com {
-    reverse_proxy frontend:80
-}
 jett-ticket.duckdns.org {
     reverse_proxy frontend:80
 }
+
+# Backend API -> the "api" container on its internal port 8080.
+api.jett-ticket.duckdns.org {
+    reverse_proxy api:8080
+}
+
+jett-ticket.duckdns.org/api {
+    reverse_proxy api:8080
+}
+# --- manassa-ticket.com: disabled until its DNS points at this VPS ---
+# These have no DNS record yet (Let's Encrypt returns NXDOMAIN), so Caddy would
+# retry cert issuance forever and risk hitting rate limits. Uncomment once you
+# create A records for manassa-ticket.com and api.manassa-ticket.com -> this VPS.
+# manassa-ticket.com {
+#     reverse_proxy frontend:80
+# }
+# api.manassa-ticket.com {
+#     reverse_proxy api:8080
+# }

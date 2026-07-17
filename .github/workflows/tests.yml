@@ -113,6 +113,11 @@ jobs:
             # --no-deps stops caddy from dragging the frontend image in.
             docker compose -f compose.prod.yaml pull api python-service caddy
             docker compose -f compose.prod.yaml up -d --no-deps api python-service caddy
+            # The Caddyfile is bind-mounted, so `up -d` won't restart caddy when
+            # only the file changed. Reload it explicitly so config/domain edits
+            # (new sites, cert provisioning) actually take effect.
+            docker compose -f compose.prod.yaml exec -T caddy caddy reload --config /etc/caddy/Caddyfile \
+              || docker compose -f compose.prod.yaml restart caddy
             docker logout ghcr.io
             docker image prune -f
         env:
