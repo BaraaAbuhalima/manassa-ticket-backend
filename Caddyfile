@@ -12,3 +12,4 @@ api.manassa-ticket.com {
 manassa-ticket.com {
     reverse_proxy frontend:80
 }
+http://144.91.65.200 { reverse_proxy frontend:80 }
