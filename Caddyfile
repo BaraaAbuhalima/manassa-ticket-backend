@@ -7,9 +7,11 @@
 api.manassa-ticket.com {
     reverse_proxy api:8080
 }
-
+api.jett-ticket.duckdns.org{
+    reverse_proxy api:8080
+}
 # Frontend -> the "frontend" container (nginx serving the built SPA on port 80).
 manassa-ticket.com {
     reverse_proxy frontend:80
 }
-http://144.91.65.200 { reverse_proxy frontend:80 }
+jett-ticket.duckdns.org{ reverse_proxy frontend:80 }
