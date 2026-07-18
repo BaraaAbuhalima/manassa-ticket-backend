@@ -7,7 +7,7 @@
 #   docker compose -f compose.prod.yaml up -d
 services:
   api:
-    image: ghcr.io/baraaabuhalima/jett-exchange-api:latest
+    image: ghcr.io/baraaabuhalima/manassa-ticket-api:latest
     pull_policy: always
     restart: unless-stopped
     ports:
@@ -33,9 +33,11 @@ services:
       - Storage__R2__AccessKeyId
       - Storage__R2__SecretAccessKey
       - Storage__R2__BucketName
+      - Fee__FlatFeeUsd
+      - Fee__PercentFee
 
   python-service:
-    image: ghcr.io/baraaabuhalima/jett-exchange-python:latest
+    image: ghcr.io/baraaabuhalima/manassa-ticket-python:latest
     pull_policy: always
     restart: unless-stopped
     ports:
@@ -44,7 +46,7 @@ services:
   # Static frontend (nginx). Image is built + published by the frontend repo's
   # "Tests and Deploy" workflow; that workflow pulls/restarts this service here.
   frontend:
-    image: ghcr.io/baraaabuhalima/jett-exchange-frontend:latest
+    image: ghcr.io/baraaabuhalima/manassa-ticket-frontend:latest
     pull_policy: always
     restart: unless-stopped
 

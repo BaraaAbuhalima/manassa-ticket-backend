@@ -2,7 +2,7 @@
 set -e
 
 repo_root=$(git rev-parse --show-toplevel)
-solution_path="$repo_root/jett-exchange-backend.sln"
+solution_path="$repo_root/manassa-ticket-backend.sln"
 
 if ! command -v dotnet >/dev/null 2>&1; then
   echo "dotnet is required to format the code before commit."

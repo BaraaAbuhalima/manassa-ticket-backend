@@ -1,6 +1,6 @@
 # RabbitMQ messaging
 
-How `jett-exchange-backend` uses RabbitMQ to decouple ticket posting, ticket-availability
+How `manassa-ticket-backend` uses RabbitMQ to decouple ticket posting, ticket-availability
 notifications, and email sending from the request path.
 
 ## Why it's here
@@ -186,7 +186,7 @@ local broker still booting, or a brief network blip to an external one.
   "Username": "",
   "Password": "",
   "EnableSsl": false,
-  "FromAddress": "no-reply@jett-exchange.local"
+  "FromAddress": "no-reply@manassa-ticket.local"
 }
 ```
 

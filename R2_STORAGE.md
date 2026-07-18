@@ -1,6 +1,6 @@
 # Cloudflare R2 storage
 
-How `jett-exchange-backend` stores ticket PDFs using Cloudflare R2.
+How `manassa-ticket-backend` stores ticket PDFs using Cloudflare R2.
 
 ## Why it's here
 
@@ -120,7 +120,7 @@ the way AWS S3 does.
 
 ## One bucket per environment
 
-Use two separate R2 buckets — e.g. `jett-tickets-dev` and `jett-tickets-prod` — so dev testing
+Use two separate R2 buckets — e.g. `manassa-tickets-dev` and `manassa-tickets-prod` — so dev testing
 can never touch, overwrite, or leak production ticket PDFs. Nothing in the code needs to change
 between environments: only `Storage__R2__BucketName` (and usually the credentials, if you scope
 an API token per bucket — see below) differs between your dev `.env` and your production `.env`,
@@ -129,7 +129,7 @@ the same way `ConnectionStrings__Postgres` or `RabbitMq__Url` do.
 ## Setting it up in Cloudflare
 
 1. **Create the buckets.** Cloudflare dashboard → R2 → Create bucket. Create one for dev
-   (e.g. `jett-tickets-dev`) and one for production (e.g. `jett-tickets-prod`). Any region/
+   (e.g. `manassa-tickets-dev`) and one for production (e.g. `manassa-tickets-prod`). Any region/
    location hint is fine — pick the one closest to where the app runs.
 2. **Get your Account ID.** It's shown on the R2 overview page (also on the main dashboard's
    right sidebar) — this is the `xxxxxxxx` in `xxxxxxxx.r2.cloudflarestorage.com`, used for
@@ -156,7 +156,7 @@ the same way `ConnectionStrings__Postgres` or `RabbitMq__Url` do.
 
 `docker compose up --build` (or `scripts\dev.ps1`) picks up `Storage__R2__*` from `.env` like
 every other secret — see the root `README.md`'s Deployment section. There's no local R2
-emulator in this stack; local development talks to your real `jett-tickets-dev` bucket, so the
+emulator in this stack; local development talks to your real `manassa-tickets-dev` bucket, so the
 CORS rule for `http://localhost:5173` (or wherever the frontend dev server runs) must already be
 in place on that bucket.
 
@@ -168,7 +168,7 @@ that URL is what actually fails, with a `403` from R2.
 
 ## Production
 
-Same as dev, just pointed at the `jett-tickets-prod` bucket, its own scoped API token, and a
+Same as dev, just pointed at the `manassa-tickets-prod` bucket, its own scoped API token, and a
 CORS rule for the real frontend domain instead of `localhost`. No code or compose changes are
 needed to switch between environments — only `.env`, consistent with the rest of this project's
 deployment story.

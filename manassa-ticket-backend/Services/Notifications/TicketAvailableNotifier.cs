@@ -1,0 +1,44 @@
+using manassa_ticket_backend.Data;
+using manassa_ticket_backend.Messaging;
+using Microsoft.EntityFrameworkCore;
+
+namespace manassa_ticket_backend.Services.Notifications;
+
+public class TicketAvailableNotifier(AppDbContext dbContext, IEmailMessagePublisher emailPublisher, ILogger<TicketAvailableNotifier> logger)
+    : ITicketAvailableNotifier
+{
+    public async Task NotifySubscribersAsync(TicketAvailableMessage message, CancellationToken cancellationToken = default)
+    {
+        var subscriptions = await dbContext.TicketDateSubscriptions
+            .Where(s => s.Date == message.Date && !s.Notified)
+            .ToListAsync(cancellationToken);
+
+        foreach (var subscription in subscriptions)
+        {
+            try
+            {
+                await emailPublisher.PublishAsync(new SendEmailMessage
+                {
+                    To = subscription.Email,
+                    Subject = "A ticket is available for your requested date | تتوفر تذكرة بالتاريخ الذي طلبته",
+                    Body = $"""
+                        A ticket is now available for sale on {message.Date:yyyy-MM-dd}. Check Manassa Ticket Exchange to grab it before it's gone.
+
+                        ---
+
+                        تتوفر الآن تذكرة للبيع بتاريخ {message.Date:yyyy-MM-dd}. تفقّد منصة Manassa Ticket Exchange للحصول عليها قبل نفادها.
+                        """
+                }, cancellationToken);
+
+                subscription.Notified = true;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to publish email notification for {Email} for date {Date}",
+                    subscription.Email, message.Date);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

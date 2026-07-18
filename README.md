@@ -1,5 +1,5 @@
-# jett-tickets-exchange-backend
-Backend service powering Jett Ticket Exchange — secure ticket marketplace with payments, orders, and user management.
+# manassa-tickets-exchange-backend
+Backend service powering Manassa Ticket Exchange — secure ticket marketplace with payments, orders, and user management.
 
 ## Git hooks
 
@@ -32,7 +32,7 @@ in `.env`, not in source. `appsettings.json` only holds non-secret defaults.
 No file changes are needed between dev and production — only `.env`.
 
 **Known gap:** the app currently runs on an in-memory SQLite database
-(`jett-exchange-backend/Program.cs`), so all data is lost on every restart. This needs to move
+(`manassa-ticket-backend/Program.cs`), so all data is lost on every restart. This needs to move
 to a persistent database provider before a real production deployment — ask if you'd like help
 with that.
 
