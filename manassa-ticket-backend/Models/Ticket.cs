@@ -14,7 +14,6 @@ public class Ticket
 
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
-    // Null until the background job extracts/verifies the PDF (Status == Processing until then).
     [MaxLength(30)]
     public string? TicketId { get; set; }
     [MaxLength(50)]
@@ -26,12 +25,13 @@ public class Ticket
 
 
     public int? NumberOfBags { get; set; }
+    // The seller's asking price in JOD - set at listing time, editable via ModifyTicketAsync.
+    // USD equivalents are derived on the fly (CurrencyConversion.JodToUsd) rather than stored,
+    // since the conversion rate is a fixed constant, not a live rate.
     [Column(TypeName = "decimal(10,2)")]
-    public required decimal TotalPriceUsd { get; set; }
-    [Column(TypeName = "decimal(10,2)")]
-    public required decimal TotalPriceJod { get; set; }
-    // In JOD, matching the currency printed on the original ticket — not TotalPriceUsd's
-    // currency. Mixing the two here is exactly the bug that motivated this comment.
+    public required decimal SellerAskedPriceJod { get; set; }
+    // In JOD, matching the currency printed on the original ticket — not a USD amount.
+    // Mixing the two here is exactly the bug that motivated this comment.
     [Column(TypeName = "decimal(10,2)")]
     public decimal? OriginalPrice { get; set; }
     [MaxLength(100)]
@@ -50,6 +50,12 @@ public class Ticket
     public required string Pin { get; set; }
     public required TicketSellStatus Status { get; set; }
     public DateTime? SoldAt { get; set; }
+    // The amount in USD actually captured from the buyer (listed price + buyer service fee),
+    // taken directly from Stripe's PaymentIntent.Amount at capture time. Fixed at sale, unlike
+    // SellerAskedPriceJod (the seller can edit it pre-sale) and the fee config (which can change
+    // over time) - both of which SoldAtPriceUsd would otherwise silently drift from if derived.
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal? SoldAtPriceUsd { get; set; }
     public DateTime? ReservedAt { get; set; }
     [MaxLength(100)]
     public required string TicketFilePath { get; set; }

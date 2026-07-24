@@ -1,4 +1,5 @@
 using manassa_ticket_backend.Common;
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.DTOs.TicketExtraction;
 using manassa_ticket_backend.Messaging;
@@ -7,6 +8,7 @@ using manassa_ticket_backend.Services.FileStorage;
 using manassa_ticket_backend.Services.TicketExtraction;
 using manassa_ticket_backend.Services.TicketVerification;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace manassa_ticket_backend.Services.Tickets;
 
@@ -17,6 +19,7 @@ public class TicketProcessor(
     ITicketVerifier ticketVerifier,
     ITicketAvailablePublisher availablePublisher,
     IEmailMessagePublisher emailPublisher,
+    IOptions<TicketPricingOptions> pricingOptions,
     ILogger<TicketProcessor> logger)
     : ITicketProcessor
 {
@@ -45,6 +48,11 @@ public class TicketProcessor(
             return await RejectAsync(submission, "Ticket verification failed.", cancellationToken);
         }
 
+        if (ticketInfo.TicketDateTime is null || ticketInfo.TicketDateTime.Value.Date != verifiedTicket.TicketDateTime.Date)
+        {
+            return await RejectAsync(submission, "Ticket date does not match the verified booking date.", cancellationToken);
+        }
+
         var alreadyPosted = await dbContext.Tickets
             .AnyAsync(t => t.TicketId == ticketInfo.TicketId, cancellationToken);
         if (alreadyPosted)
@@ -52,14 +60,13 @@ public class TicketProcessor(
             return await RejectAsync(submission, "This ticket has already been posted.", cancellationToken);
         }
 
-        // verifiedTicket.TotalPriceJod is already the original ticket's price in JOD — no
-        // conversion needed here, unlike verifiedTicket.TotalPrice (USD).
-        var maxAskingPriceJod = verifiedTicket.TotalPriceJod + 1m;
+        var maxAskingPriceIncreaseJod = pricingOptions.Value.MaxAskingPriceIncreaseJod;
+        var maxAskingPriceJod = verifiedTicket.TotalPriceJod + maxAskingPriceIncreaseJod;
         if (submission.TotalPriceJod > maxAskingPriceJod)
         {
             return await RejectAsync(
                 submission,
-                $"Asking price cannot exceed the original ticket price by more than 1 JOD (max {maxAskingPriceJod:0.00} JOD).",
+                $"Asking price cannot exceed the original ticket price by more than {maxAskingPriceIncreaseJod:0.##} JOD (max {maxAskingPriceJod:0.00} JOD).",
                 cancellationToken);
         }
 
@@ -69,8 +76,7 @@ public class TicketProcessor(
             SellerName = submission.SellerName,
             SellerEmail = submission.SellerEmail,
             SellerPhone = submission.SellerPhone,
-            TotalPriceJod = submission.TotalPriceJod,
-            TotalPriceUsd = submission.TotalPriceUsd,
+            SellerAskedPriceJod = submission.TotalPriceJod,
             PaymentMethod = submission.PaymentMethod,
             PaymentInfo = submission.PaymentInfo,
             Pin = submission.Pin,
@@ -145,7 +151,7 @@ public class TicketProcessor(
                     Ticket reference: {ticket.TicketId}
                     Travel date: {ticket.TicketDateTime:yyyy-MM-dd}
                     Number of bags: {ticket.NumberOfBags}
-                    Price: {ticket.TotalPriceUsd} USD ({ticket.TotalPriceJod} JOD)
+                    Price: {ticket.SellerAskedPriceJod:0.00} JOD
                     Seller name: {ticket.SellerName}
                     Seller email: {ticket.SellerEmail}
                     Seller phone: {ticket.SellerPhone}
@@ -163,7 +169,7 @@ public class TicketProcessor(
                     رقم التذكرة المرجعي: {ticket.TicketId}
                     تاريخ السفر: {ticket.TicketDateTime:yyyy-MM-dd}
                     عدد الحقائب: {ticket.NumberOfBags}
-                    السعر: {ticket.TotalPriceUsd} دولار أمريكي ({ticket.TotalPriceJod} دينار أردني)
+                    السعر: {ticket.SellerAskedPriceJod:0.00} دينار أردني
                     اسم البائع: {ticket.SellerName}
                     البريد الإلكتروني للبائع: {ticket.SellerEmail}
                     رقم هاتف البائع: {ticket.SellerPhone}

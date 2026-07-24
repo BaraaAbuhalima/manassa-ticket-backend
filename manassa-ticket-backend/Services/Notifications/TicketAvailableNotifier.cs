@@ -1,10 +1,16 @@
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace manassa_ticket_backend.Services.Notifications;
 
-public class TicketAvailableNotifier(AppDbContext dbContext, IEmailMessagePublisher emailPublisher, ILogger<TicketAvailableNotifier> logger)
+public class TicketAvailableNotifier(
+    AppDbContext dbContext,
+    IEmailMessagePublisher emailPublisher,
+    IOptions<FrontendOptions> frontendOptions,
+    ILogger<TicketAvailableNotifier> logger)
     : ITicketAvailableNotifier
 {
     public async Task NotifySubscribersAsync(TicketAvailableMessage message, CancellationToken cancellationToken = default)
@@ -12,6 +18,8 @@ public class TicketAvailableNotifier(AppDbContext dbContext, IEmailMessagePublis
         var subscriptions = await dbContext.TicketDateSubscriptions
             .Where(s => s.Date == message.Date && !s.Notified)
             .ToListAsync(cancellationToken);
+
+        var ticketLink = $"{frontendOptions.Value.BaseUrl.TrimEnd('/')}/tickets?date={message.Date:yyyy-MM-dd}";
 
         foreach (var subscription in subscriptions)
         {
@@ -24,9 +32,13 @@ public class TicketAvailableNotifier(AppDbContext dbContext, IEmailMessagePublis
                     Body = $"""
                         A ticket is now available for sale on {message.Date:yyyy-MM-dd}. Check Manassa Ticket Exchange to grab it before it's gone.
 
+                        {ticketLink}
+
                         ---
 
                         تتوفر الآن تذكرة للبيع بتاريخ {message.Date:yyyy-MM-dd}. تفقّد منصة Manassa Ticket Exchange للحصول عليها قبل نفادها.
+
+                        {ticketLink}
                         """
                 }, cancellationToken);
 

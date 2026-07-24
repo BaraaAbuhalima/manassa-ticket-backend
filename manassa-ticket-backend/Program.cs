@@ -24,10 +24,10 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // Read directly from configuration rather than via IOptions<CorsOptions> — AddCors runs here,
-// before the DI container is built, so the options system isn't resolvable yet. The list
-// itself lives in appsettings.json (Cors:AllowedOrigins) rather than as a literal here — it's
-// not a secret, so unlike Stripe/DB/SMTP credentials it doesn't need a .env override; add a
-// new domain by editing that array and redeploying.
+// before the DI container is built, so the options system isn't resolvable yet. appsettings.json
+// only sets the local dev default (localhost:5173); production domains come from .env
+// (Cors__AllowedOrigins__0, __1, ...) like the rest of the per-environment deploy config, since
+// the server never has the repo checked out to edit an appsettings file directly.
 var corsOptions = builder.Configuration.GetSection("Cors").Get<CorsOptions>() ?? new CorsOptions();
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection("Cors"));
 
@@ -56,6 +56,8 @@ builder.Services.Configure<PythonExtractorOptions>(
     builder.Configuration.GetSection("PythonTicketExtractorService"));
 builder.Services.Configure<ManassaApiOptions>(
     builder.Configuration.GetSection("ManassaApi"));
+builder.Services.Configure<FrontendOptions>(
+    builder.Configuration.GetSection("Frontend"));
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<RabbitMqOptions>(
@@ -70,6 +72,10 @@ builder.Services.AddOptions<FeeOptions>()
     .Bind(builder.Configuration.GetSection("Fee"))
     .Validate(o => o.FlatFeeUsd >= 0, "Fee:FlatFeeUsd must not be negative.")
     .Validate(o => o.PercentFee >= 0, "Fee:PercentFee must not be negative.")
+    .ValidateOnStart();
+builder.Services.AddOptions<TicketPricingOptions>()
+    .Bind(builder.Configuration.GetSection("TicketPricing"))
+    .Validate(o => o.MaxAskingPriceIncreaseJod >= 0, "TicketPricing:MaxAskingPriceIncreaseJod must not be negative.")
     .ValidateOnStart();
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 

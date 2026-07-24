@@ -1,3 +1,4 @@
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.DTOs.TicketExtraction;
 using manassa_ticket_backend.DTOs.TicketVerification;
@@ -9,6 +10,7 @@ using manassa_ticket_backend.Services.TicketVerification;
 using manassa_ticket_backend.Services.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using TestManassaTicketBackend.TestHelpers;
 
@@ -47,6 +49,7 @@ public class TicketProcessorTests
             _verifier.Object,
             _availablePublisher.Object,
             _emailPublisher.Object,
+            Options.Create(new TicketPricingOptions()),
             NullLogger<TicketProcessor>.Instance);
     }
 
@@ -60,7 +63,6 @@ public class TicketProcessorTests
         SellerEmail = "seller@example.com",
         SellerPhone = "+1234567890",
         TotalPriceJod = 50m,
-        TotalPriceUsd = 71.5m,
         PaymentMethod = PaymentMethod.Reflect,
         PaymentInfo = new Reflect { PhoneNumber = "0791234567" },
         Pin = pin,
@@ -75,8 +77,10 @@ public class TicketProcessorTests
 
     private void SetupSuccessfulExtractionAndVerification(string barcode = "BC123")
     {
+        var travelDate = new DateTime(2026, 8, 1, 10, 0, 0);
+
         _extractor.Setup(e => e.ExtractTicketAsync(It.IsAny<Stream>(), It.IsAny<string>()))
-            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = barcode });
+            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = barcode, TicketDateTime = travelDate });
 
         _verifier.Setup(v => v.VerifyTicketAsync(It.IsAny<string>()))
             .ReturnsAsync(new VerifiedTicketDTO
@@ -86,10 +90,10 @@ public class TicketProcessorTests
                 OriginalOwnerName = "Owner",
                 OriginalOwnerPassportNumber = "P1",
                 NumberOfBags = 1,
-                TotalPrice = 71.5m,
                 // 50 JOD original -> cap 51 JOD, just above the 50 JOD default submission price
                 // so the price-cap check doesn't interfere with unrelated tests.
-                TotalPriceJod = 50m
+                TotalPriceJod = 50m,
+                TicketDateTime = travelDate
             });
     }
 
@@ -108,6 +112,7 @@ public class TicketProcessorTests
         result.Ticket.OriginalOwnerPassportNumber.Should().Be("P1");
         result.Ticket.NumberOfBags.Should().Be(1);
         result.Ticket.OriginalPrice.Should().Be(50m);
+        result.Ticket.SellerAskedPriceJod.Should().Be(50m);
         result.Ticket.SellerEmail.Should().Be("seller@example.com");
         result.Ticket.Pin.Should().Be("PIN123");
 
@@ -178,13 +183,40 @@ public class TicketProcessorTests
     }
 
     [Test]
+    public async Task ProcessAsync_RejectsWithoutPersisting_WhenDateMismatch()
+    {
+        _extractor.Setup(e => e.ExtractTicketAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+            .ReturnsAsync(new PdfTicketDTO
+            {
+                Success = true,
+                TicketId = "TCK-1",
+                BarCode = "BC123",
+                TicketDateTime = new DateTime(2026, 8, 1, 10, 0, 0)
+            });
+        _verifier.Setup(v => v.VerifyTicketAsync(It.IsAny<string>()))
+            .ReturnsAsync(new VerifiedTicketDTO
+            {
+                Success = true,
+                BarCode = "BC123",
+                TicketDateTime = new DateTime(2026, 8, 2, 10, 0, 0)
+            });
+        var submission = CreateSubmission();
+
+        var result = await _sut.ProcessAsync(submission);
+
+        result.Success.Should().BeFalse();
+        GetPersistedTicket(submission.TicketRowId).Should().BeNull();
+    }
+
+    [Test]
     public async Task ProcessAsync_CreatesTicket_WhenAskingPriceExactlyAtOriginalPricePlusOne()
     {
         // 10 JOD original -> cap 11 JOD. Asking exactly 11 lands right on the cap.
+        var travelDate = new DateTime(2026, 8, 1, 10, 0, 0);
         _extractor.Setup(e => e.ExtractTicketAsync(It.IsAny<Stream>(), It.IsAny<string>()))
-            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = "BC123" });
+            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = "BC123", TicketDateTime = travelDate });
         _verifier.Setup(v => v.VerifyTicketAsync(It.IsAny<string>()))
-            .ReturnsAsync(new VerifiedTicketDTO { Success = true, BarCode = "BC123", NumberOfBags = 0, TotalPriceJod = 10m });
+            .ReturnsAsync(new VerifiedTicketDTO { Success = true, BarCode = "BC123", NumberOfBags = 0, TotalPriceJod = 10m, TicketDateTime = travelDate });
         var submission = CreateSubmission();
         submission.TotalPriceJod = 11m;
 
@@ -199,10 +231,11 @@ public class TicketProcessorTests
     public async Task ProcessAsync_RejectsWithoutPersisting_WhenAskingPriceExceedsOriginalPricePlusOne()
     {
         // 10 JOD original -> cap 11 JOD. 11.10 is just over the cap.
+        var travelDate = new DateTime(2026, 8, 1, 10, 0, 0);
         _extractor.Setup(e => e.ExtractTicketAsync(It.IsAny<Stream>(), It.IsAny<string>()))
-            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = "BC123" });
+            .ReturnsAsync(new PdfTicketDTO { Success = true, TicketId = "TCK-1", BarCode = "BC123", TicketDateTime = travelDate });
         _verifier.Setup(v => v.VerifyTicketAsync(It.IsAny<string>()))
-            .ReturnsAsync(new VerifiedTicketDTO { Success = true, BarCode = "BC123", NumberOfBags = 0, TotalPriceJod = 10m });
+            .ReturnsAsync(new VerifiedTicketDTO { Success = true, BarCode = "BC123", NumberOfBags = 0, TotalPriceJod = 10m, TicketDateTime = travelDate });
         var submission = CreateSubmission();
         submission.TotalPriceJod = 11.1m;
 
@@ -227,8 +260,7 @@ public class TicketProcessorTests
             SellerName = "Other Seller",
             SellerEmail = "other@example.com",
             SellerPhone = "+1234567890",
-            TotalPriceJod = 50m,
-            TotalPriceUsd = 71.5m,
+            SellerAskedPriceJod = 50m,
             PaymentMethod = PaymentMethod.Reflect,
             PaymentInfo = new Reflect { PhoneNumber = "0791234567" },
             Pin = "EXISTING",

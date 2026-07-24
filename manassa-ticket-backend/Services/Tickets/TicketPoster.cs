@@ -47,7 +47,6 @@ public class TicketPoster(
             SellerEmail = request.SellerEmail,
             SellerPhone = request.SellerPhone,
             TotalPriceJod = request.Price,
-            TotalPriceUsd = request.Price * CurrencyConversion.JodToUsdRate,
             PaymentMethod = request.PaymentMethod,
             PaymentInfo = PaymentInfoMapper.Build(request.PaymentMethod, request.PaymentInfoRequest),
             Pin = pinGenerator.Generate(12),
@@ -68,10 +67,7 @@ public class TicketPoster(
                 Success = false,
                 Message = result.RejectionReason!,
                 Errors = [result.RejectionReason!],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+
             };
         }
 
@@ -88,7 +84,7 @@ public class TicketPoster(
             },
             Links = new Dictionary<string, string>
             {
-                { "status", "/api/ticket/by-pin/" + result.Ticket.Pin },
+                { "status", $"/api/ticket/by-pin/{result.Ticket.Pin}?email={Uri.EscapeDataString(result.Ticket.SellerEmail)}" },
             }
         };
     }

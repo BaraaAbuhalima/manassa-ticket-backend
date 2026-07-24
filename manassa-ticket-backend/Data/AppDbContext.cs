@@ -25,6 +25,19 @@ public class AppDbContext : DbContext
                 paymentInfo => JsonSerializer.Serialize(paymentInfo, PaymentInfo.JsonOptions),
                 json => JsonSerializer.Deserialize<PaymentInfo>(json, PaymentInfo.JsonOptions)!);
 
+        // Stored by name rather than the default int, so appending new members (or, unlike
+        // the int encoding, even reordering existing ones) can never silently reinterpret a
+        // row already sitting in the database.
+        modelBuilder.Entity<Ticket>()
+            .Property(t => t.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        modelBuilder.Entity<Ticket>()
+            .Property(t => t.PaymentMethod)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
         // Postgres's timestamptz rejects DateTime.Kind=Local outright (and treats Unspecified
         // as an app-level footgun). Force every stored DateTime through Utc here so a Kind
         // slipping in from an external API or JSON-bound request can't crash SaveChanges.

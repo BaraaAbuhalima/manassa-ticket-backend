@@ -1,4 +1,6 @@
-﻿namespace manassa_ticket_backend.DTOs.TicketExtraction;
+﻿using System.Text.Json.Serialization;
+
+namespace manassa_ticket_backend.DTOs.TicketExtraction;
 
 public class PdfTicketDTO
 {
@@ -6,4 +8,7 @@ public class PdfTicketDTO
     public string? Message { get; set; }
     public required string TicketId { get; set; }
     public required string BarCode { get; set; }
+
+    [JsonPropertyName("DateTime")]
+    public DateTime? TicketDateTime { get; set; }
 }

@@ -34,8 +34,7 @@ public class TicketReaderTests
             OriginalOwnerPassportNumber = "P1",
             TicketDateTime = ticketDateTime ?? DateTime.UtcNow,
             NumberOfBags = 1,
-            TotalPriceJod = 10m,
-            TotalPriceUsd = 14.3m,
+            SellerAskedPriceJod = 10m,
             OriginalPrice = 14.3m,
             SellerName = "Seller",
             SellerEmail = "seller@example.com",
@@ -66,18 +65,16 @@ public class TicketReaderTests
     [Test]
     public async Task GetByIdAsync_IncludesFeeInclusiveAmount()
     {
-        // TotalPriceUsd 14.3 -> fee = 1 + 5% of 14.3 = 1.715 -> rounds to 1.72 -> amount 16.02
-        // Fee in JOD = 1.72 / 1.43 = 1.2028 -> rounds to 1.20 -> amountJod = 10 + 1.20 = 11.20
+        // SellerAskedPriceJod 10 JOD -> baseUsd 14.3 -> fee = 1 + 5% of 14.3 = 1.715 -> rounds to 1.72 -> totalUsd 16.02
+        // totalUsd 16.02 * UsdToJodRate 0.68 = 10.8936 -> rounds to 10.89
         var ticket = CreateTicket();
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(ticket.Id);
 
-        result.Data!.TotalPriceUsd.Should().Be(14.3m);
-        result.Data!.Fee.Should().Be(1.72m);
-        result.Data!.Amount.Should().Be(16.02m);
-        result.Data!.AmountJod.Should().Be(11.20m);
+        result.Data!.TotalPriceUsd.Should().Be(16.02m);
+        result.Data!.TotalPriceJod.Should().Be(10.89m);
     }
 
     [Test]
@@ -97,7 +94,7 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("ABC123");
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
 
         result.Success.Should().BeTrue();
         result.Data!.Id.Should().Be(ticket.Id);
@@ -105,9 +102,35 @@ public class TicketReaderTests
     }
 
     [Test]
+    public async Task GetByPinAsync_ReturnsTicket_WhenEmailDiffersOnlyByCase()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123", "SELLER@EXAMPLE.COM");
+
+        result.Success.Should().BeTrue();
+        result.Data!.Id.Should().Be(ticket.Id);
+    }
+
+    [Test]
     public async Task GetByPinAsync_ReturnsNotFound_WhenMissing()
     {
-        var result = await _sut.GetByPinAsync("does-not-exist");
+        var result = await _sut.GetByPinAsync("does-not-exist", "seller@example.com");
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
+    }
+
+    [Test]
+    public async Task GetByPinAsync_ReturnsNotFound_WhenEmailDoesNotMatchPin()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123", "someone-else@example.com");
 
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(404);
@@ -120,7 +143,7 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("ABC123");
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
 
         result.Links.Should().ContainKey("delete");
         result.Links!["delete"].Should().Be("/api/ticket");
@@ -133,7 +156,7 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("ABC123");
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
 
         result.Links.Should().ContainKey("republish");
         result.Links!["republish"].Should().Be("/api/ticket/republish");
@@ -146,7 +169,7 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("ABC123");
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
 
         result.Links.Should().ContainKey("modify");
         result.Links!["modify"].Should().Be("/api/ticket");
@@ -159,13 +182,12 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("ABC123");
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
 
         result.Data!.SellerEmail.Should().Be(ticket.SellerEmail);
         result.Data!.SellerPhone.Should().Be(ticket.SellerPhone);
         result.Data!.PaymentMethod.Should().Be(ticket.PaymentMethod);
-        result.Data!.TotalPriceUsd.Should().Be(ticket.TotalPriceUsd);
-        result.Data!.TotalPriceJod.Should().Be(ticket.TotalPriceJod);
+        result.Data!.SellerAskedPriceJod.Should().Be(ticket.SellerAskedPriceJod);
         result.Data!.PaymentInfo.Should().BeOfType<Reflect>();
         ((Reflect)result.Data!.PaymentInfo).PhoneNumber.Should().Be("0791234567");
     }
@@ -178,9 +200,22 @@ public class TicketReaderTests
         _dbContext.Tickets.Add(ticket);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetByPinAsync("SOLD-1");
+        var result = await _sut.GetByPinAsync("SOLD-1", "seller@example.com");
 
         result.Data!.SoldAt.Should().Be(ticket.SoldAt);
+    }
+
+    [Test]
+    public async Task GetByPinAsync_SurfacesRejectionReasonAsMessage_WhenTicketRejected()
+    {
+        var ticket = CreateTicket(pin: "REJ-1");
+        ticket.RejectionReason = "Ticket file failed verification";
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("REJ-1", "seller@example.com");
+
+        result.Message.Should().Be("Ticket file failed verification");
     }
 
     [Test]

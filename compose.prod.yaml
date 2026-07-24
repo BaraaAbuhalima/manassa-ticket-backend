@@ -35,6 +35,10 @@ services:
       - Storage__R2__BucketName
       - Fee__FlatFeeUsd
       - Fee__PercentFee
+      - TicketPricing__MaxAskingPriceIncreaseJod
+      - Cors__AllowedOrigins__0
+      - Cors__AllowedOrigins__1
+      - Frontend__BaseUrl
 
   python-service:
     image: ghcr.io/baraaabuhalima/manassa-ticket-python:latest

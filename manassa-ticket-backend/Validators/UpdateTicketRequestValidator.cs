@@ -15,8 +15,8 @@ public class UpdateTicketRequestValidator : AbstractValidator<UpdateTicketReques
             .WithMessage("At least one field must be provided to update");
 
         RuleFor(x => x.Price)
-            .GreaterThan(0)
-            .WithMessage("Price must be greater than zero");
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Price must not be negative");
 
         When(x => x.Payment is not null, () =>
         {

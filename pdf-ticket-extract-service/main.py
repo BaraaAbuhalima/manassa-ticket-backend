@@ -9,7 +9,11 @@ app = FastAPI()
 
 # Regex patterns
 TICKET_REGEX = re.compile(r"تذكرة\s*[:\-]?\s*(\d+)")
-DATE_REGEX = re.compile(r"(\d{1,2}/\d{1,2}/\d{4})\s+(\d{1,2}:\d{2})")
+DATE_LABEL = "التاريخ"
+TIME_LABEL = "الوقت"
+DATE_VALUE_REGEX = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+TIME_VALUE_REGEX = re.compile(r"\d{1,2}:\d{2}")
+PERIOD_REGEX = re.compile(r"AM|PM", re.IGNORECASE)
 
 
 def extract_ticket(text):
@@ -17,22 +21,41 @@ def extract_ticket(text):
     return match.group(1) if match else None
 
 
-def extract_datetime(text):
-    match = DATE_REGEX.search(text)
+def _line_containing(text, label):
+    for line in text.splitlines():
+        if label in line:
+            return line
+    return None
 
-    if not match:
+
+def extract_datetime(text):
+    date_line = _line_containing(text, DATE_LABEL)
+    date_match = DATE_VALUE_REGEX.search(date_line) if date_line else None
+    if not date_match:
         return None
 
-    date_str = match.group(1)
-    time_str = match.group(2)
+    # Date and time are printed as separate labeled lines (not "date time" on one
+    # line), and the "Time" field is a boarding window, e.g. "12:00 PM - 1:00 PM".
+    # The PDF's text layer emits that line with the words reversed
+    # ("PM - 1:00 PM 12:00 :الوقت") because the LTR time range sits inside an RTL
+    # line with no directional override, so the window's start time - what should
+    # represent the ticket's time - ends up as the *last* time token, not the first.
+    time_line = _line_containing(text, TIME_LABEL)
+    time_values = TIME_VALUE_REGEX.findall(time_line) if time_line else []
+    if not time_values:
+        return None
+    time_str = time_values[-1]
+
+    period_match = PERIOD_REGEX.search(time_line)
+    if period_match:
+        time_format = "%d/%m/%Y %I:%M %p"
+        combined = f"{date_match.group(0)} {time_str} {period_match.group(0).upper()}"
+    else:
+        time_format = "%d/%m/%Y %H:%M"
+        combined = f"{date_match.group(0)} {time_str}"
 
     try:
-        dt = datetime.strptime(
-            f"{date_str} {time_str}",
-            "%d/%m/%Y %H:%M"
-        )
-
-        return dt.isoformat()
+        return datetime.strptime(combined, time_format).isoformat()
     except Exception:
         return None
 

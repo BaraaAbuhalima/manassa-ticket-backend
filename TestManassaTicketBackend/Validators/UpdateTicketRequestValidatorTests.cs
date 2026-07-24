@@ -63,9 +63,17 @@ public class UpdateTicketRequestValidatorTests
     }
 
     [Test]
-    public void Validate_Fails_WhenPriceIsZeroOrNegative()
+    public void Validate_Passes_WhenPriceIsZero()
     {
         var result = _sut.Validate(new UpdateTicketRequest { Price = 0m });
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Test]
+    public void Validate_Fails_WhenPriceIsNegative()
+    {
+        var result = _sut.Validate(new UpdateTicketRequest { Price = -1m });
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "Price");

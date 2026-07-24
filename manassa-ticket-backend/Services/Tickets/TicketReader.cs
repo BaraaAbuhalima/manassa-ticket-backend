@@ -15,7 +15,8 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
     public async Task<ApiResponse<GetTicketByIdResponse>> GetByIdAsync(Guid id)
     {
         var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Id == id);
-        if (ticket is null)
+        
+        if (ticket is null || ticket.Status != TicketSellStatus.ForSale)
         {
             return TicketResponses.NotFound<GetTicketByIdResponse>();
         }
@@ -34,9 +35,9 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
         };
     }
 
-    public async Task<ApiResponse<GetTicketByPinResponse>> GetByPinAsync(string pin)
+    public async Task<ApiResponse<GetTicketByPinResponse>> GetByPinAsync(string pin, string email)
     {
-        var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Pin == pin);
+        var ticket = await dbContext.Tickets.FirstOrDefaultAsync(t => t.Pin == pin && t.SellerEmail.ToLower() == email.ToLower());
         if (ticket is null)
         {
             return TicketResponses.NotFound<GetTicketByPinResponse>();
@@ -46,16 +47,14 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
         {
             StatusCode = StatusCodes.Status200OK,
             Success = true,
-            Message = "Ticket retrieved successfully",
+            Message = ticket.RejectionReason ?? "Ticket retrieved successfully",
             Data = new GetTicketByPinResponse
             {
                 Id = ticket.Id,
                 TicketDateTime = ticket.TicketDateTime,
                 NumberOfBags = ticket.NumberOfBags,
-                TotalPriceUsd = ticket.TotalPriceUsd,
-                TotalPriceJod = ticket.TotalPriceJod,
+                SellerAskedPriceJod = ticket.SellerAskedPriceJod,
                 Status = ticket.Status,
-                RejectionReason = ticket.RejectionReason,
                 SoldAt = ticket.SoldAt,
                 SellerEmail = ticket.SellerEmail,
                 SellerPhone = ticket.SellerPhone,
@@ -113,10 +112,7 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
         var tickets = await query.Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
         var totalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
 
-        var links = new Dictionary<string, string>
-        {
-            { "home", "/home" },
-        };
+        var links = new Dictionary<string, string>();
         if (page > 1)
         {
             links["prev"] = BuildRangeLink(startDate, endDate, page - 1);
@@ -151,18 +147,17 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
     // they reach checkout.
     private GetTicketByIdResponse ToResponse(Ticket ticket)
     {
-        var fee = FeeCalculator.CalculateFeeUsd(ticket.TotalPriceUsd, feeOptions.Value.FlatFeeUsd, feeOptions.Value.PercentFee);
-        var amountJod = ticket.TotalPriceJod + Math.Round(fee / CurrencyConversion.JodToUsdRate, 2, MidpointRounding.AwayFromZero);
+        var baseUsd = CurrencyConversion.JodToUsd(ticket.SellerAskedPriceJod);
+        var fee = FeeCalculator.CalculateFeeUsd(baseUsd, feeOptions.Value.FlatFeeUsd, feeOptions.Value.PercentFee);
+        var totalUsd = baseUsd + fee;
+        var totalJod = Math.Round(totalUsd * CurrencyConversion.UsdToJodRate, 2, MidpointRounding.AwayFromZero);
         return new GetTicketByIdResponse
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
             NumberOfBags = ticket.NumberOfBags,
-            TotalPriceUsd = ticket.TotalPriceUsd,
-            TotalPriceJod = ticket.TotalPriceJod,
-            Fee = fee,
-            Amount = ticket.TotalPriceUsd + fee,
-            AmountJod = amountJod
+            TotalPriceUsd = totalUsd,
+            TotalPriceJod = totalJod
         };
     }
 }

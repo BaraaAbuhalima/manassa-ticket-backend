@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
-using manassa_ticket_backend.Common;
 
 namespace manassa_ticket_backend.DTOs.TicketVerification;
 
@@ -15,17 +13,8 @@ public class VerifiedTicketDTO
 
     public DateTime TicketDateTime { get; set; }
 
-    [Column(TypeName = "decimal(3,2)")]
-    public decimal Price { get; set; }
-
     public int NumberOfBags { get; set; }
-
-    public decimal TotalPrice { get; set; }
-
-    // The original ticket's price in JOD — the currency actually printed on it — computed
-    // directly from the raw parsed amount rather than by reversing the USD conversion above.
-    // This is what Ticket.OriginalPrice is set from; callers should never need to convert
-    // TotalPrice back to JOD themselves.
+    
     public decimal TotalPriceJod { get; set; }
 
     public VerifiedTicketDTO(TransferTicketDTO response)
@@ -43,22 +32,17 @@ public class VerifiedTicketDTO
             response.Details.Data.Booking.Travel_date,
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+        date = date.AddHours(5);
         var time = TimeSpan.Parse(response.Details.Data.Booking.Travel_time_from);
 
         // TicketDateTime is stored as the bus's wall-clock travel date/time in a
         // "timestamp without time zone" column, so the Kind=Utc left over from the
         // deterministic parsing above must be stripped before it reaches the DbContext.
         TicketDateTime = DateTime.SpecifyKind(date.Date.Add(time), DateTimeKind.Unspecified);
-
         var ticketAmountJod = decimal.Parse(ticket.Ticket_amount, CultureInfo.InvariantCulture);
-        Price = ticketAmountJod * CurrencyConversion.JodToUsdRate;
 
         NumberOfBags = ticket.Count_luggage;
 
-        TotalPrice = Price + (NumberOfBags * 2m);
-        // The JOD-native bag fee is a flat 2 JOD per bag, not the USD fee above converted
-        // through the exchange rate — those are two independently defined fees, one per
-        // currency, not the same fee expressed twice.
         TotalPriceJod = ticketAmountJod + (NumberOfBags * 2m);
     }
 

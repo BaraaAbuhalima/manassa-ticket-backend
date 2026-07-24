@@ -56,8 +56,7 @@ public class TicketPosterTests
         SellerName = "Seller",
         SellerEmail = "seller@example.com",
         SellerPhone = "+1234567890",
-        TotalPriceJod = 100m,
-        TotalPriceUsd = 143m,
+        SellerAskedPriceJod = 100m,
         PaymentMethod = PaymentMethod.Reflect,
         PaymentInfo = new Reflect { PhoneNumber = "0791234567" },
         Pin = pin,
@@ -114,8 +113,7 @@ public class TicketPosterTests
                 s.Pin == "GENERATEDPIN" &&
                 s.TicketFilePath == "permanent/uploaded.pdf" &&
                 s.SellerEmail == "seller@example.com" &&
-                s.TotalPriceJod == 100m &&
-                s.TotalPriceUsd == 143m),
+                s.TotalPriceJod == 100m),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

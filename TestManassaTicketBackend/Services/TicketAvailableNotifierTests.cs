@@ -1,9 +1,11 @@
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.Messaging;
 using manassa_ticket_backend.Models;
 using manassa_ticket_backend.Services.Notifications;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using TestManassaTicketBackend.TestHelpers;
 
@@ -20,7 +22,8 @@ public class TicketAvailableNotifierTests
     {
         _dbContext = InMemoryDbContextFactory.Create();
         _emailPublisher = new Mock<IEmailMessagePublisher>();
-        _sut = new TicketAvailableNotifier(_dbContext, _emailPublisher.Object, NullLogger<TicketAvailableNotifier>.Instance);
+        var frontendOptions = Options.Create(new FrontendOptions { BaseUrl = "https://manassa-ticket.test" });
+        _sut = new TicketAvailableNotifier(_dbContext, _emailPublisher.Object, frontendOptions, NullLogger<TicketAvailableNotifier>.Instance);
     }
 
     [TearDown]
@@ -117,5 +120,19 @@ public class TicketAvailableNotifierTests
 
         _emailPublisher.Verify(e => e.PublishAsync(
             It.Is<SendEmailMessage>(m => m.Body.Contains("2026-08-15")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task NotifySubscribersAsync_IncludesFrontendTicketLinkInEmailBody()
+    {
+        var date = new DateOnly(2026, 8, 15);
+        _dbContext.TicketDateSubscriptions.Add(CreateSubscription("a@example.com", date));
+        await _dbContext.SaveChangesAsync();
+
+        await _sut.NotifySubscribersAsync(new TicketAvailableMessage { TicketId = Guid.NewGuid(), Date = date });
+
+        _emailPublisher.Verify(e => e.PublishAsync(
+            It.Is<SendEmailMessage>(m => m.Body.Contains("https://manassa-ticket.test/tickets?date=2026-08-15")),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

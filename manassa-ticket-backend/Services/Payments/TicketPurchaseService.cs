@@ -67,9 +67,10 @@ public class TicketPurchaseService(
         // startup. The seller is paid the full listed price separately (payout here is
         // manual/off-platform — see PaymentInfo); this fee is what the platform keeps on
         // top, not a cut of what the seller receives.
+        var baseUsd = CurrencyConversion.JodToUsd(ticket.SellerAskedPriceJod);
         var feeUsd = FeeCalculator.CalculateFeeUsd(
-            ticket.TotalPriceUsd, feeOptions.Value.FlatFeeUsd, feeOptions.Value.PercentFee);
-        var totalUsd = ticket.TotalPriceUsd + feeUsd;
+            baseUsd, feeOptions.Value.FlatFeeUsd, feeOptions.Value.PercentFee);
+        var totalUsd = baseUsd + feeUsd;
         var amountInSmallestUnit = (long)Math.Round(totalUsd * 100, MidpointRounding.AwayFromZero);
 
         // No DB write here — nobody is blocked from starting checkout just because someone
@@ -93,7 +94,7 @@ public class TicketPurchaseService(
                 { "ticketId", ticket.Id.ToString() },
                 { "buyerName", request.BuyerName },
                 { "buyerEmail", request.BuyerEmail },
-                { "ticketPriceUsd", ticket.TotalPriceUsd.ToString("0.00") },
+                { "ticketPriceUsd", baseUsd.ToString("0.00") },
                 { "feeUsd", feeUsd.ToString("0.00") }
             },
             AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
@@ -112,8 +113,6 @@ public class TicketPurchaseService(
                 TicketId = ticket.Id,
                 ClientSecret = paymentIntent.ClientSecret,
                 PublishableKey = stripeOptions.Value.PublishableKey,
-                TicketPrice = ticket.TotalPriceUsd,
-                Fee = feeUsd,
                 Amount = totalUsd,
                 Currency = currency
             },
@@ -330,7 +329,8 @@ public class TicketPurchaseService(
             .Where(t => t.Id == ticket.Id && t.Status == TicketSellStatus.Reserved)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(t => t.Status, TicketSellStatus.Sold)
-                .SetProperty(t => t.SoldAt, DateTime.UtcNow));
+                .SetProperty(t => t.SoldAt, DateTime.UtcNow)
+                .SetProperty(t => t.SoldAtPriceUsd, paymentIntent.Amount / 100m));
 
         if (sold == 0)
         {
@@ -377,14 +377,14 @@ public class TicketPurchaseService(
                 Body = $"""
                     Good news — your ticket for {date} has sold on Manassa Ticket Exchange. We are now processing your payment and will be in touch shortly with the transfer.
 
-                    You will receive: {ticket.TotalPriceJod:0.00} JOD
+                    You will receive: {ticket.SellerAskedPriceJod:0.00} JOD
                     Payout method: {paymentDetails}
 
                     ---
 
                     أخبار سارة — تم بيع تذكرتك بتاريخ {date} عبر منصة Manassa Ticket Exchange. نحن الآن بصدد معالجة عملية الدفع الخاصة بك وسنتواصل معك قريبًا بخصوص التحويل.
 
-                    المبلغ الذي ستحصل عليه: {ticket.TotalPriceJod:0.00} دينار أردني
+                    المبلغ الذي ستحصل عليه: {ticket.SellerAskedPriceJod:0.00} دينار أردني
                     طريقة استلام المبلغ: {paymentDetails}
                     """
             });

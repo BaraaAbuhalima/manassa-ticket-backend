@@ -24,10 +24,7 @@ public class ContactUsService(IEmailMessagePublisher emailPublisher, IOptions<Co
             StatusCode = StatusCodes.Status200OK,
             Success = true,
             Message = "Your message has been sent. We'll get back to you soon.",
-            Links = new Dictionary<string, string>
-            {
-                { "home", "/home" },
-            }
+
         };
     }
 }

@@ -21,9 +21,9 @@ public class TicketController(
     }
 
     [HttpGet("by-pin/{pin}")]
-    public async Task<IActionResult> GetByPin(string pin)
+    public async Task<IActionResult> GetByPin(string pin, [FromQuery] string email)
     {
-        var response = await ticketReader.GetByPinAsync(pin);
+        var response = await ticketReader.GetByPinAsync(pin, email);
         if (response.Data is not null)
         {
             Response.Headers["X-Delete-Token"] = deleteTokenService.GenerateToken(response.Data.Id);

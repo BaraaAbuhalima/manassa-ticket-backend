@@ -1,4 +1,5 @@
 using manassa_ticket_backend.Common;
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.DTOs.Requests;
 using manassa_ticket_backend.DTOs.Responses;
@@ -6,6 +7,7 @@ using manassa_ticket_backend.Messaging;
 using manassa_ticket_backend.Models;
 using manassa_ticket_backend.Services.FileStorage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace manassa_ticket_backend.Services.Tickets;
 
@@ -14,6 +16,7 @@ public class TicketDeleter(
     ITicketDeleteTokenService deleteTokenService,
     ITicketAvailablePublisher availablePublisher,
     IFileStorage fileStorage,
+    IOptions<TicketPricingOptions> pricingOptions,
     ILogger<TicketDeleter> logger)
     : ITicketDeleter
 {
@@ -30,10 +33,7 @@ public class TicketDeleter(
                 Success = false,
                 Message = "Invalid or expired delete token",
                 Errors = ["Invalid or expired delete token"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+
             };
         }
 
@@ -176,7 +176,7 @@ public class TicketDeleter(
                 Links = new Dictionary<string, string>
                 {
                     { "home", "/home" },
-                    { "by-pin", "/api/ticket/by-pin/" + ticket.Pin },
+                    { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
                 }
             };
         }
@@ -194,8 +194,7 @@ public class TicketDeleter(
             Message = "Ticket republished successfully",
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
-                { "by-pin", "/api/ticket/by-pin/" + ticket.Pin },
+                { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
             }
         };
     }
@@ -217,8 +216,7 @@ public class TicketDeleter(
                 Errors = ["Only a ticket for sale can be modified"],
                 Links = new Dictionary<string, string>
                 {
-                    { "home", "/home" },
-                    { "by-pin", "/api/ticket/by-pin/" + ticket.Pin },
+                    { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
                 }
             };
         }
@@ -227,7 +225,7 @@ public class TicketDeleter(
         {
             // OriginalPrice is stored in JOD (matching the currency on the original ticket),
             // same as request.Price, so the cap is a direct JOD comparison — no conversion.
-            var maxPriceJod = ticket.OriginalPrice + 1;
+            var maxPriceJod = ticket.OriginalPrice + pricingOptions.Value.MaxAskingPriceIncreaseJod;
             if (request.Price.Value > maxPriceJod)
             {
                 return new ApiResponse<string>
@@ -238,14 +236,12 @@ public class TicketDeleter(
                     Errors = [$"Price cannot exceed {maxPriceJod:0.00} JOD"],
                     Links = new Dictionary<string, string>
                     {
-                        { "home", "/home" },
-                        { "by-pin", "/api/ticket/by-pin/" + ticket.Pin },
+                        { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
                     }
                 };
             }
 
-            ticket.TotalPriceJod = request.Price.Value;
-            ticket.TotalPriceUsd = request.Price.Value * CurrencyConversion.JodToUsdRate;
+            ticket.SellerAskedPriceJod = request.Price.Value;
         }
 
         if (request.Payment is not null)
@@ -264,8 +260,7 @@ public class TicketDeleter(
             Message = "Ticket updated successfully",
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
-                { "by-pin", "/api/ticket/by-pin/" + ticket.Pin },
+                { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
             }
         };
     }

@@ -1,4 +1,5 @@
 using manassa_ticket_backend.Common.ValueObjects;
+using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.DTOs.Requests;
 using manassa_ticket_backend.Messaging;
@@ -7,6 +8,7 @@ using manassa_ticket_backend.Services.FileStorage;
 using manassa_ticket_backend.Services.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using TestManassaTicketBackend.TestHelpers;
 
@@ -19,6 +21,7 @@ public class TicketDeleterTests
     private TicketDeleteTokenService _deleteTokenService = null!;
     private Mock<ITicketAvailablePublisher> _availablePublisher = null!;
     private Mock<IFileStorage> _fileStorage = null!;
+    private IOptions<TicketPricingOptions> _pricingOptions = null!;
     private TicketDeleter _sut = null!;
 
     [SetUp]
@@ -29,7 +32,8 @@ public class TicketDeleterTests
         _deleteTokenService = TestTicketDeleteTokenService.Create();
         _availablePublisher = new Mock<ITicketAvailablePublisher>();
         _fileStorage = new Mock<IFileStorage>();
-        _sut = new TicketDeleter(_dbContext, _deleteTokenService, _availablePublisher.Object, _fileStorage.Object, NullLogger<TicketDeleter>.Instance);
+        _pricingOptions = Options.Create(new TicketPricingOptions());
+        _sut = new TicketDeleter(_dbContext, _deleteTokenService, _availablePublisher.Object, _fileStorage.Object, _pricingOptions, NullLogger<TicketDeleter>.Instance);
     }
 
     [TearDown]
@@ -48,8 +52,7 @@ public class TicketDeleterTests
         OriginalOwnerPassportNumber = "P1",
         TicketDateTime = DateTime.UtcNow,
         NumberOfBags = 1,
-        TotalPriceJod = 10m,
-        TotalPriceUsd = 14.3m,
+        SellerAskedPriceJod = 10m,
         OriginalPrice = originalPrice,
         SellerName = "Seller",
         SellerEmail = "seller@example.com",
@@ -158,7 +161,7 @@ public class TicketDeleterTests
 
         // A token forged with an unrelated signing key must not be accepted.
         var forgedToken = otherService.GenerateToken(ticket.Id);
-        var tamperedSut = new TicketDeleter(_dbContext, TestTicketDeleteTokenService.Create(), _availablePublisher.Object, _fileStorage.Object, NullLogger<TicketDeleter>.Instance);
+        var tamperedSut = new TicketDeleter(_dbContext, TestTicketDeleteTokenService.Create(), _availablePublisher.Object, _fileStorage.Object, _pricingOptions, NullLogger<TicketDeleter>.Instance);
 
         var result = await tamperedSut.DeleteByTokenAsync(forgedToken.Replace(forgedToken.Split('.')[2], "tampered-signature"));
 
@@ -393,8 +396,7 @@ public class TicketDeleterTests
         result.Success.Should().BeTrue();
         result.StatusCode.Should().Be(200);
         var persisted = GetPersistedTicket(ticket.Id)!;
-        persisted.TotalPriceJod.Should().Be(10m);
-        persisted.TotalPriceUsd.Should().Be(14.3m);
+        persisted.SellerAskedPriceJod.Should().Be(10m);
     }
 
     [Test]
@@ -411,8 +413,7 @@ public class TicketDeleterTests
         result.Success.Should().BeFalse();
         result.StatusCode.Should().Be(400);
         var persisted = GetPersistedTicket(ticket.Id)!;
-        persisted.TotalPriceJod.Should().Be(10m);
-        persisted.TotalPriceUsd.Should().Be(14.3m);
+        persisted.SellerAskedPriceJod.Should().Be(10m);
     }
 
     [Test]

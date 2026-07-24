@@ -66,14 +66,14 @@ public class TicketControllerTests
     public async Task GetByPin_ReturnsServiceStatusCodeAndBody()
     {
         var response = new ApiResponse<GetTicketByPinResponse> { StatusCode = 200, Success = true };
-        _reader.Setup(s => s.GetByPinAsync("ABC123")).ReturnsAsync(response);
+        _reader.Setup(s => s.GetByPinAsync("ABC123", "seller@example.com")).ReturnsAsync(response);
 
-        var result = await _sut.GetByPin("ABC123");
+        var result = await _sut.GetByPin("ABC123", "seller@example.com");
 
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(200);
         objectResult.Value.Should().BeSameAs(response);
-        _reader.Verify(s => s.GetByPinAsync("ABC123"), Times.Once);
+        _reader.Verify(s => s.GetByPinAsync("ABC123", "seller@example.com"), Times.Once);
     }
 
     [Test]
@@ -89,8 +89,7 @@ public class TicketControllerTests
                 Id = ticketId,
                 TicketDateTime = DateTime.UtcNow,
                 NumberOfBags = 1,
-                TotalPriceUsd = 14.3m,
-                TotalPriceJod = 10m,
+                SellerAskedPriceJod = 10m,
                 Status = TicketSellStatus.ForSale,
                 SellerEmail = "seller@example.com",
                 SellerPhone = "+1234567890",
@@ -98,10 +97,10 @@ public class TicketControllerTests
                 PaymentInfo = new Reflect { PhoneNumber = "0791234567" }
             }
         };
-        _reader.Setup(s => s.GetByPinAsync("ABC123")).ReturnsAsync(response);
+        _reader.Setup(s => s.GetByPinAsync("ABC123", "seller@example.com")).ReturnsAsync(response);
         _deleteTokenService.Setup(s => s.GenerateToken(ticketId)).Returns("the-delete-jwt");
 
-        await _sut.GetByPin("ABC123");
+        await _sut.GetByPin("ABC123", "seller@example.com");
 
         _sut.Response.Headers["X-Delete-Token"].ToString().Should().Be("the-delete-jwt");
     }
@@ -110,9 +109,9 @@ public class TicketControllerTests
     public async Task GetByPin_DoesNotSetDeleteTokenResponseHeader_WhenTicketNotFound()
     {
         var response = new ApiResponse<GetTicketByPinResponse> { StatusCode = 404, Success = false };
-        _reader.Setup(s => s.GetByPinAsync("missing")).ReturnsAsync(response);
+        _reader.Setup(s => s.GetByPinAsync("missing", "seller@example.com")).ReturnsAsync(response);
 
-        await _sut.GetByPin("missing");
+        await _sut.GetByPin("missing", "seller@example.com");
 
         _sut.Response.Headers.Should().NotContainKey("X-Delete-Token");
     }

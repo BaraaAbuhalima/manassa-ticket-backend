@@ -39,6 +39,18 @@ public class PythonTicketDataExtractorTests
     }
 
     [Test]
+    public async Task ExtractTicketAsync_DeserializesDateTime_WhenPresent()
+    {
+        var sut = CreateSut(_ => JsonResponse(HttpStatusCode.OK,
+            """{"Success":true,"TicketId":"TCK-1","BarCode":"BC123","DateTime":"2026-08-01T10:00:00"}"""), out _);
+
+        using var stream = new MemoryStream([1, 2, 3]);
+        var result = await sut.ExtractTicketAsync(stream, "ticket.pdf");
+
+        result.TicketDateTime.Should().Be(new DateTime(2026, 8, 1, 10, 0, 0));
+    }
+
+    [Test]
     public async Task ExtractTicketAsync_PostsFileContentsAsMultipartForm_ToExpectedRoute()
     {
         byte[]? uploadedBytes = null;

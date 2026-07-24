@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using manassa_ticket_backend.Data;
@@ -11,9 +12,11 @@ using manassa_ticket_backend.Data;
 namespace manassa_ticket_backend.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724173411_StoreTicketStatusAsString")]
+    partial class StoreTicketStatusAsString
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -57,10 +60,8 @@ namespace manassa_ticket_backend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Pin")
                         .IsRequired()
@@ -73,9 +74,6 @@ namespace manassa_ticket_backend.Data.Migrations
 
                     b.Property<DateTime?>("ReservedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("SellerAskedPriceJod")
-                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("SellerEmail")
                         .IsRequired()
@@ -94,9 +92,6 @@ namespace manassa_ticket_backend.Data.Migrations
 
                     b.Property<DateTime?>("SoldAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("SoldAtPriceUsd")
-                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -118,6 +113,12 @@ namespace manassa_ticket_backend.Data.Migrations
                     b.Property<string>("TicketId")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("TotalPriceJod")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("TotalPriceUsd")
+                        .HasColumnType("decimal(10,2)");
 
                     b.HasKey("Id");
 
