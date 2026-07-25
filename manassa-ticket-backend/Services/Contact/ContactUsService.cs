@@ -19,6 +19,29 @@ public class ContactUsService(IEmailMessagePublisher emailPublisher, IOptions<Co
             Body = $"From: {request.Name} <{request.Email}>\n\n{request.Message}"
         }, cancellationToken);
 
+        await emailPublisher.PublishAsync(new SendEmailMessage
+        {
+            To = request.Email,
+            Subject = "We've received your message - Manassa Ticket Exchange | استلمنا رسالتك",
+            Body = $"""
+                Hi {request.Name},
+
+                Thanks for reaching out to Manassa Ticket Exchange. We've received your message and will get back to you soon.
+
+                Your message:
+                {request.Message}
+
+                ---
+
+                مرحبًا {request.Name}،
+
+                شكرًا لتواصلك مع Manassa Ticket Exchange. لقد استلمنا رسالتك وسنتواصل معك قريبًا.
+
+                رسالتك:
+                {request.Message}
+                """
+        }, cancellationToken);
+
         return new ApiResponse<string>
         {
             StatusCode = StatusCodes.Status200OK,

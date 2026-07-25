@@ -48,6 +48,18 @@ public class ContactUsServiceTests
     }
 
     [Test]
+    public async Task SubmitAsync_SendsConfirmationEmail_ToSubmitter()
+    {
+        var request = new ContactUsRequest { Name = "Jane Doe", Email = "jane@example.com", Message = "Hello there" };
+
+        await _sut.SubmitAsync(request);
+
+        _emailPublisher.Verify(e => e.PublishAsync(
+            It.Is<SendEmailMessage>(m => m.To == "jane@example.com" && m.Body.Contains("Hello there")),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
     public async Task SubmitAsync_ReturnsSuccessResponse()
     {
         var request = new ContactUsRequest { Name = "Jane Doe", Email = "jane@example.com", Message = "Hello there" };
