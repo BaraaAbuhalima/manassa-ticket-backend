@@ -18,7 +18,8 @@ public class ContactUsServiceTests
     {
         _emailPublisher = new Mock<IEmailMessagePublisher>();
         var options = Options.Create(new ContactOptions { RecipientEmail = "owner@example.com" });
-        _sut = new ContactUsService(_emailPublisher.Object, options);
+        var smtpOptions = Options.Create(new SmtpOptions { FromAddress = "no-reply@example.com" });
+        _sut = new ContactUsService(_emailPublisher.Object, options, smtpOptions);
     }
 
     [Test]
@@ -29,7 +30,8 @@ public class ContactUsServiceTests
         await _sut.SubmitAsync(request);
 
         _emailPublisher.Verify(e => e.PublishAsync(
-            It.Is<SendEmailMessage>(m => m.To == "owner@example.com"), It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<SendEmailMessage>(m => m.To == "owner@example.com" && m.From == "no-reply@example.com"),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -48,14 +50,17 @@ public class ContactUsServiceTests
     }
 
     [Test]
-    public async Task SubmitAsync_SendsConfirmationEmail_ToSubmitter()
+    public async Task SubmitAsync_SendsConfirmationEmail_ToSubmitter_FromSupportAddress()
     {
         var request = new ContactUsRequest { Name = "Jane Doe", Email = "jane@example.com", Message = "Hello there" };
 
         await _sut.SubmitAsync(request);
 
         _emailPublisher.Verify(e => e.PublishAsync(
-            It.Is<SendEmailMessage>(m => m.To == "jane@example.com" && m.Body.Contains("Hello there")),
+            It.Is<SendEmailMessage>(m =>
+                m.To == "jane@example.com" &&
+                m.From == "owner@example.com" &&
+                m.Body.Contains("Hello there")),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

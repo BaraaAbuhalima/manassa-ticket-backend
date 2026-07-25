@@ -10,12 +10,14 @@ namespace manassa_ticket_backend.Services.Email;
 
 public class SmtpEmailSender(
     IOptions<SmtpOptions> options,
+    IOptions<ContactOptions> contactOptions,
     IFileStorage fileStorage,
     ILogger<SmtpEmailSender> logger)
     : IEmailSender
 {
     public async Task SendAsync(
         string toEmail,
+        string fromEmail,
         string subject,
         string body,
         string? attachmentPath = null,
@@ -27,12 +29,18 @@ public class SmtpEmailSender(
             EnableSsl = options.Value.EnableSsl
         };
 
-        if (!string.IsNullOrEmpty(options.Value.Username))
+        // The support mailbox (Contact:RecipientEmail) is a separate Zoho login from the
+        // default no-reply sender, so it needs its own credentials to authenticate as itself.
+        var (username, password) = string.Equals(fromEmail, contactOptions.Value.RecipientEmail, StringComparison.OrdinalIgnoreCase)
+            ? (contactOptions.Value.SmtpUsername, contactOptions.Value.SmtpPassword)
+            : (options.Value.Username, options.Value.Password);
+
+        if (!string.IsNullOrEmpty(username))
         {
-            client.Credentials = new NetworkCredential(options.Value.Username, options.Value.Password);
+            client.Credentials = new NetworkCredential(username, password);
         }
 
-        using var message = new MailMessage(options.Value.FromAddress, toEmail, subject, body);
+        using var message = new MailMessage(fromEmail, toEmail, subject, body);
 
         Stream? attachmentStream = null;
         if (attachmentPath is not null)

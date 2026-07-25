@@ -48,6 +48,7 @@ public class TicketPurchaseServiceTests
             feeOptions,
             Mock.Of<ITicketSoldNotificationPublisher>(),
             Mock.Of<ITicketPurchasedNotificationPublisher>(),
+            Options.Create(new SmtpOptions { FromAddress = "no-reply@example.com" }),
             NullLogger<TicketPurchaseService>.Instance);
     }
 

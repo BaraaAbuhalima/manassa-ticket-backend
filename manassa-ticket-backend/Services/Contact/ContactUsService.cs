@@ -6,13 +6,18 @@ using Microsoft.Extensions.Options;
 
 namespace manassa_ticket_backend.Services.Contact;
 
-public class ContactUsService(IEmailMessagePublisher emailPublisher, IOptions<ContactOptions> options) : IContactUsService
+public class ContactUsService(
+    IEmailMessagePublisher emailPublisher,
+    IOptions<ContactOptions> contactOptions,
+    IOptions<SmtpOptions> smtpOptions)
+    : IContactUsService
 {
     public async Task<ApiResponse<string>> SubmitAsync(ContactUsRequest request, CancellationToken cancellationToken = default)
     {
         await emailPublisher.PublishAsync(new SendEmailMessage
         {
-            To = options.Value.RecipientEmail,
+            To = contactOptions.Value.RecipientEmail,
+            From = smtpOptions.Value.FromAddress,
             Subject = $"Contact Us message from {request.Name} | رسالة تواصل من {request.Name}",
             // The body is the visitor's own message verbatim — not translated, since we have
             // no way to know what language it's already in or translate it accurately.
@@ -22,6 +27,9 @@ public class ContactUsService(IEmailMessagePublisher emailPublisher, IOptions<Co
         await emailPublisher.PublishAsync(new SendEmailMessage
         {
             To = request.Email,
+            // Sent from the support inbox (not no-reply) since this is the one automated
+            // email a customer might reasonably want to reply to.
+            From = contactOptions.Value.RecipientEmail,
             Subject = "We've received your message - Manassa Ticket Exchange | استلمنا رسالتك",
             Body = $"""
                 Hi {request.Name},

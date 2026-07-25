@@ -40,6 +40,7 @@ public class TicketPurchasedNotificationConsumer(
                     var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
                     await emailSender.SendAsync(
                         message.To,
+                        message.From,
                         message.Subject,
                         message.Body,
                         message.AttachmentPath,

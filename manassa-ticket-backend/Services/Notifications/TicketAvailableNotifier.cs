@@ -10,6 +10,7 @@ public class TicketAvailableNotifier(
     AppDbContext dbContext,
     IEmailMessagePublisher emailPublisher,
     IOptions<FrontendOptions> frontendOptions,
+    IOptions<SmtpOptions> smtpOptions,
     ILogger<TicketAvailableNotifier> logger)
     : ITicketAvailableNotifier
 {
@@ -28,6 +29,7 @@ public class TicketAvailableNotifier(
                 await emailPublisher.PublishAsync(new SendEmailMessage
                 {
                     To = subscription.Email,
+                    From = smtpOptions.Value.FromAddress,
                     Subject = "A ticket is available for your requested date | تتوفر تذكرة بالتاريخ الذي طلبته",
                     Body = $"""
                         A ticket is now available for sale on {message.Date:yyyy-MM-dd}. Check Manassa Ticket Exchange to grab it before it's gone.

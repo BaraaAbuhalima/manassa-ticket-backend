@@ -20,6 +20,7 @@ public class TicketProcessor(
     ITicketAvailablePublisher availablePublisher,
     IEmailMessagePublisher emailPublisher,
     IOptions<TicketPricingOptions> pricingOptions,
+    IOptions<SmtpOptions> smtpOptions,
     ILogger<TicketProcessor> logger)
     : ITicketProcessor
 {
@@ -142,6 +143,7 @@ public class TicketProcessor(
             await emailPublisher.PublishAsync(new SendEmailMessage
             {
                 To = ticket.SellerEmail,
+                From = smtpOptions.Value.FromAddress,
                 Subject = "Your ticket has been posted - Manassa Ticket Exchange | تم نشر تذكرتك",
                 Body = $"""
                     Hi {ticket.SellerName},
@@ -195,6 +197,7 @@ public class TicketProcessor(
             await emailPublisher.PublishAsync(new SendEmailMessage
             {
                 To = submission.SellerEmail,
+                From = smtpOptions.Value.FromAddress,
                 Subject = "Your ticket listing could not be posted - Manassa Ticket Exchange | تعذّر نشر تذكرتك",
                 Body = $"""
                     Hi {submission.SellerName},

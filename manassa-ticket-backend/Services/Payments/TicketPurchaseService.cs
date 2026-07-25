@@ -18,6 +18,7 @@ public class TicketPurchaseService(
     IOptions<FeeOptions> feeOptions,
     ITicketSoldNotificationPublisher soldNotificationPublisher,
     ITicketPurchasedNotificationPublisher purchasedNotificationPublisher,
+    IOptions<SmtpOptions> smtpOptions,
     ILogger<TicketPurchaseService> logger)
     : ITicketPurchaseService
 {
@@ -373,6 +374,7 @@ public class TicketPurchaseService(
             await soldNotificationPublisher.PublishAsync(new SendEmailMessage
             {
                 To = ticket.SellerEmail,
+                From = smtpOptions.Value.FromAddress,
                 Subject = "Your ticket has sold | تم بيع تذكرتك",
                 Body = $"""
                     Good news — your ticket for {date} has sold on Manassa Ticket Exchange. We are now processing your payment and will be in touch shortly with the transfer.
@@ -404,6 +406,7 @@ public class TicketPurchaseService(
             await purchasedNotificationPublisher.PublishAsync(new SendEmailMessage
             {
                 To = ticket.BuyerEmail,
+                From = smtpOptions.Value.FromAddress,
                 Subject = "Your Manassa Ticket Exchange purchase | عملية الشراء الخاصة بك",
                 Body = $"""
                     Thanks for your purchase! Your ticket for {date} is attached.

@@ -23,7 +23,8 @@ public class TicketAvailableNotifierTests
         _dbContext = InMemoryDbContextFactory.Create();
         _emailPublisher = new Mock<IEmailMessagePublisher>();
         var frontendOptions = Options.Create(new FrontendOptions { BaseUrl = "https://manassa-ticket.test" });
-        _sut = new TicketAvailableNotifier(_dbContext, _emailPublisher.Object, frontendOptions, NullLogger<TicketAvailableNotifier>.Instance);
+        var smtpOptions = Options.Create(new SmtpOptions { FromAddress = "no-reply@example.com" });
+        _sut = new TicketAvailableNotifier(_dbContext, _emailPublisher.Object, frontendOptions, smtpOptions, NullLogger<TicketAvailableNotifier>.Instance);
     }
 
     [TearDown]

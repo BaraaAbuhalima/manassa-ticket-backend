@@ -4,6 +4,7 @@ public interface IEmailSender
 {
     Task SendAsync(
         string toEmail,
+        string fromEmail,
         string subject,
         string body,
         string? attachmentPath = null,

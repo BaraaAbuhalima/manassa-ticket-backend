@@ -50,6 +50,7 @@ public class TicketProcessorTests
             _availablePublisher.Object,
             _emailPublisher.Object,
             Options.Create(new TicketPricingOptions()),
+            Options.Create(new SmtpOptions { FromAddress = "no-reply@example.com" }),
             NullLogger<TicketProcessor>.Instance);
     }
 
