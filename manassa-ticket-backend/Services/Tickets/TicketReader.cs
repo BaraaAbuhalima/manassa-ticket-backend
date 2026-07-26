@@ -92,6 +92,34 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
         return await GetPagedByDateRangeAsync(startDate, endDate, page);
     }
 
+    public async Task<ApiResponse<List<GetTicketByIdResponse>>> GetCheapestForNextTwoWeeksAsync()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var rangeStart = today.ToDateTime(TimeOnly.MinValue);
+        var rangeEndExclusive = today.AddDays(14).ToDateTime(TimeOnly.MinValue);
+
+        var tickets = await dbContext.Tickets
+            .Where(t => t.Status == TicketSellStatus.ForSale)
+            .Where(t => t.TicketDateTime >= rangeStart && t.TicketDateTime < rangeEndExclusive)
+            // Cast to double: SQLite (used in tests) can't translate ORDER BY on a decimal column.
+            .OrderBy(t => (double)t.SellerAskedPriceJod)
+            .ThenBy(t => t.CreatedAt)
+            .ToListAsync();
+
+        var cheapestPerDay = tickets
+            .GroupBy(t => DateOnly.FromDateTime(t.TicketDateTime!.Value))
+            .OrderBy(g => g.Key)
+            .Select(g => g.First());
+
+        return new ApiResponse<List<GetTicketByIdResponse>>
+        {
+            StatusCode = StatusCodes.Status200OK,
+            Success = true,
+            Message = "Cheapest tickets retrieved successfully",
+            Data = cheapestPerDay.Select(ToResponse).ToList()
+        };
+    }
+
     private async Task<ApiResponse<List<GetTicketByIdResponse>>> GetPagedByDateRangeAsync(DateOnly startDate, DateOnly endDate, int page)
     {
         page = page < 1 ? 1 : page;

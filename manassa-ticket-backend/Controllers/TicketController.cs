@@ -46,6 +46,13 @@ public class TicketController(
         return StatusCode(response.StatusCode, response);
     }
 
+    [HttpGet("cheapest")]
+    public async Task<IActionResult> GetCheapestForNextTwoWeeks()
+    {
+        var response = await ticketReader.GetCheapestForNextTwoWeeksAsync();
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpDelete("")]
     public async Task<IActionResult> DeleteByToken()
     {

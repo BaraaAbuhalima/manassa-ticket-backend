@@ -348,6 +348,52 @@ public class TicketReaderTests
     }
 
     [Test]
+    public async Task GetCheapestForNextTwoWeeksAsync_ReturnsCheapestTicketPerDay()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var day0Cheap = CreateTicket(pin: "DAY0-CHEAP", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), askedPriceJod: 10m);
+        var day0Expensive = CreateTicket(pin: "DAY0-EXPENSIVE", ticketDateTime: today.ToDateTime(new TimeOnly(15, 0)), askedPriceJod: 30m);
+        var day1Cheap = CreateTicket(pin: "DAY1-CHEAP", ticketDateTime: today.AddDays(1).ToDateTime(new TimeOnly(9, 0)), askedPriceJod: 20m);
+        _dbContext.Tickets.AddRange(day0Cheap, day0Expensive, day1Cheap);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetCheapestForNextTwoWeeksAsync();
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().HaveCount(2);
+        result.Data![0].Id.Should().Be(day0Cheap.Id);
+        result.Data![1].Id.Should().Be(day1Cheap.Id);
+    }
+
+    [Test]
+    public async Task GetCheapestForNextTwoWeeksAsync_ExcludesTicketsNotForSale()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var forSale = CreateTicket(pin: "FORSALE", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), status: TicketSellStatus.ForSale, askedPriceJod: 15m);
+        var sold = CreateTicket(pin: "SOLD", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), status: TicketSellStatus.Sold, askedPriceJod: 5m);
+        _dbContext.Tickets.AddRange(forSale, sold);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetCheapestForNextTwoWeeksAsync();
+
+        result.Data.Should().ContainSingle(t => t.Id == forSale.Id);
+    }
+
+    [Test]
+    public async Task GetCheapestForNextTwoWeeksAsync_ExcludesTicketsOutsideTheNextTwoWeeks()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tooFar = CreateTicket(pin: "TOOFAR", ticketDateTime: today.AddDays(15).ToDateTime(TimeOnly.MinValue));
+        var inPast = CreateTicket(pin: "PAST", ticketDateTime: today.AddDays(-1).ToDateTime(TimeOnly.MinValue));
+        _dbContext.Tickets.AddRange(tooFar, inPast);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetCheapestForNextTwoWeeksAsync();
+
+        result.Data.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task GetForDateRangeAsync_PaginatesResults_TwentyPerPage()
     {
         var start = new DateOnly(2026, 7, 1);

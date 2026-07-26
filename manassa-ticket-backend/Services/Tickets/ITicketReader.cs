@@ -9,4 +9,5 @@ public interface ITicketReader
     Task<ApiResponse<GetTicketByPinResponse>> GetByPinAsync(string pin, string email);
     Task<ApiResponse<List<GetTicketByIdResponse>>> GetForDateAsync(DateOnly date, int page);
     Task<ApiResponse<List<GetTicketByIdResponse>>> GetForDateRangeAsync(DateOnly startDate, DateOnly endDate, int page);
+    Task<ApiResponse<List<GetTicketByIdResponse>>> GetCheapestForNextTwoWeeksAsync();
 }
