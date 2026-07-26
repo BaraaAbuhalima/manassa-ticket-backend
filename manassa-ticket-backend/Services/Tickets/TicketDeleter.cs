@@ -176,7 +176,6 @@ public class TicketDeleter(
                 Links = new Dictionary<string, string>
                 {
                     { "home", "/home" },
-                    { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
                 }
             };
         }
@@ -194,7 +193,7 @@ public class TicketDeleter(
             Message = "Ticket republished successfully",
             Links = new Dictionary<string, string>
             {
-                { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
+                { "home", "/home" },
             }
         };
     }
@@ -216,7 +215,7 @@ public class TicketDeleter(
                 Errors = ["Only a ticket for sale can be modified"],
                 Links = new Dictionary<string, string>
                 {
-                    { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
+                    { "home", "/home" },
                 }
             };
         }
@@ -236,7 +235,7 @@ public class TicketDeleter(
                     Errors = [$"Price cannot exceed {maxPriceJod:0.00} JOD"],
                     Links = new Dictionary<string, string>
                     {
-                        { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
+                        { "home", "/home" },
                     }
                 };
             }
@@ -260,7 +259,7 @@ public class TicketDeleter(
             Message = "Ticket updated successfully",
             Links = new Dictionary<string, string>
             {
-                { "by-pin", $"/api/ticket/by-pin/{ticket.Pin}?email={Uri.EscapeDataString(ticket.SellerEmail)}" },
+                { "home", "/home" },
             }
         };
     }

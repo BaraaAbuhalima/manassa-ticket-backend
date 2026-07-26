@@ -105,7 +105,9 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
         var query = dbContext.Tickets
             .Where(t => t.Status == TicketSellStatus.ForSale)
             .Where(t => t.TicketDateTime >= rangeStart && t.TicketDateTime < rangeEndExclusive)
-            .OrderBy(t => t.TicketDateTime)
+            // Cast to double: SQLite (used in tests) can't translate ORDER BY on a decimal column.
+            .OrderBy(t => (double)t.SellerAskedPriceJod)
+            .ThenBy(t => t.TicketDateTime)
             .ThenBy(t => t.CreatedAt);
 
         var totalCount = await query.CountAsync();

@@ -84,7 +84,7 @@ public class TicketPoster(
             },
             Links = new Dictionary<string, string>
             {
-                { "status", $"/api/ticket/by-pin/{result.Ticket.Pin}?email={Uri.EscapeDataString(result.Ticket.SellerEmail)}" },
+                { "home", "/home" },
             }
         };
     }

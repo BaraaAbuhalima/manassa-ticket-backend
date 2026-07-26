@@ -27,14 +27,15 @@ public class TicketReaderTests
     private static Ticket CreateTicket(
         string pin = "PIN123",
         DateTime? ticketDateTime = null,
-        TicketSellStatus status = TicketSellStatus.ForSale) => new()
+        TicketSellStatus status = TicketSellStatus.ForSale,
+        decimal askedPriceJod = 10m) => new()
         {
             TicketId = Guid.NewGuid().ToString("N")[..10],
             OriginalOwnerName = "Owner",
             OriginalOwnerPassportNumber = "P1",
             TicketDateTime = ticketDateTime ?? DateTime.UtcNow,
             NumberOfBags = 1,
-            SellerAskedPriceJod = 10m,
+            SellerAskedPriceJod = askedPriceJod,
             OriginalPrice = 14.3m,
             SellerName = "Seller",
             SellerEmail = "seller@example.com",
@@ -273,6 +274,22 @@ public class TicketReaderTests
         page2.Meta!.Page.Should().Be(2);
 
         page1.Data!.Select(t => t.Id).Should().NotIntersectWith(page2.Data!.Select(t => t.Id));
+    }
+
+    [Test]
+    public async Task GetForDateAsync_ReturnsTickets_OrderedByPriceAscending()
+    {
+        var date = new DateOnly(2026, 7, 5);
+        var dateTime = date.ToDateTime(TimeOnly.MinValue);
+        var expensive = CreateTicket(pin: "EXPENSIVE", ticketDateTime: dateTime, askedPriceJod: 30m);
+        var cheap = CreateTicket(pin: "CHEAP", ticketDateTime: dateTime, askedPriceJod: 10m);
+        var mid = CreateTicket(pin: "MID", ticketDateTime: dateTime, askedPriceJod: 20m);
+        _dbContext.Tickets.AddRange(expensive, cheap, mid);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetForDateAsync(date, page: 1);
+
+        result.Data!.Select(t => t.Id).Should().Equal(cheap.Id, mid.Id, expensive.Id);
     }
 
     [Test]
