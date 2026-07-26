@@ -88,11 +88,7 @@ public class TicketDeleter(
                 StatusCode = StatusCodes.Status401Unauthorized,
                 Success = false,
                 Message = "Invalid or expired delete token",
-                Errors = ["Invalid or expired delete token"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+                Errors = ["Invalid or expired delete token"]
             };
             return (null, error);
         }
@@ -115,11 +111,7 @@ public class TicketDeleter(
                 StatusCode = StatusCodes.Status409Conflict,
                 Success = false,
                 Message = "Ticket has already been sold and cannot be deleted",
-                Errors = ["Ticket has already been sold and cannot be deleted"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+                Errors = ["Ticket has already been sold and cannot be deleted"]
             };
         }
 
@@ -133,11 +125,7 @@ public class TicketDeleter(
                 StatusCode = StatusCodes.Status409Conflict,
                 Success = false,
                 Message = "Ticket is currently being purchased and cannot be deleted",
-                Errors = ["Ticket is currently being purchased and cannot be deleted"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+                Errors = ["Ticket is currently being purchased and cannot be deleted"]
             };
         }
 
@@ -152,7 +140,6 @@ public class TicketDeleter(
             Message = "Ticket deleted successfully",
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
                 { "republish", "/api/ticket/republish" },
             }
         };
@@ -175,7 +162,9 @@ public class TicketDeleter(
                 Errors = ["Only a deleted ticket can be republished"],
                 Links = new Dictionary<string, string>
                 {
-                    { "home", "/home" },
+                    { "republish", "/api/ticket/republish" },
+                    { "modify", "/api/ticket" },
+                    { "download", "/api/ticket/file-url" }
                 }
             };
         }
@@ -193,7 +182,9 @@ public class TicketDeleter(
             Message = "Ticket republished successfully",
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
+                { "republish", "/api/ticket/republish" },
+                { "modify", "/api/ticket" },
+                { "download", "/api/ticket/file-url" }
             }
         };
     }
@@ -215,7 +206,9 @@ public class TicketDeleter(
                 Errors = ["Only a ticket for sale can be modified"],
                 Links = new Dictionary<string, string>
                 {
-                    { "home", "/home" },
+                    { "republish", "/api/ticket/republish" },
+                    { "modify", "/api/ticket" },
+                    { "download", "/api/ticket/file-url" }
                 }
             };
         }
@@ -235,7 +228,9 @@ public class TicketDeleter(
                     Errors = [$"Price cannot exceed {maxPriceJod:0.00} JOD"],
                     Links = new Dictionary<string, string>
                     {
-                        { "home", "/home" },
+                        { "republish", "/api/ticket/republish" },
+                        { "modify", "/api/ticket" },
+                        { "download", "/api/ticket/file-url" }
                     }
                 };
             }
@@ -259,7 +254,9 @@ public class TicketDeleter(
             Message = "Ticket updated successfully",
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
+                { "republish", "/api/ticket/republish" },
+                { "modify", "/api/ticket" },
+                { "download", "/api/ticket/file-url" }
             }
         };
     }

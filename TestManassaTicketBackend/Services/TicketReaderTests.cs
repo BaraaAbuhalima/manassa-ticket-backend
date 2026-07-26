@@ -177,6 +177,19 @@ public class TicketReaderTests
     }
 
     [Test]
+    public async Task GetByPinAsync_IncludesDownloadLink()
+    {
+        var ticket = CreateTicket(pin: "ABC123");
+        _dbContext.Tickets.Add(ticket);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByPinAsync("ABC123", "seller@example.com");
+
+        result.Links.Should().ContainKey("download");
+        result.Links!["download"].Should().Be("/api/ticket/file-url");
+    }
+
+    [Test]
     public async Task GetByPinAsync_IncludesSellerAndPaymentDetails()
     {
         var ticket = CreateTicket(pin: "ABC123");

@@ -53,11 +53,7 @@ public class TicketPurchaseService(
                 StatusCode = StatusCodes.Status409Conflict,
                 Success = false,
                 Message = "Ticket is not available for purchase",
-                Errors = ["Ticket is not available for purchase"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+                Errors = ["Ticket is not available for purchase"]
             };
         }
 
@@ -119,7 +115,6 @@ public class TicketPurchaseService(
             },
             Links = new Dictionary<string, string>
             {
-                { "home", "/home" },
                 { "ticket", "/ticket?id=" + ticket.Id },
             }
         };

@@ -140,11 +140,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         {
             Success = false,
             Message = "Validation failed",
-            Errors = errors,
-            Links = new Dictionary<string, string>
-            {
-                { "home", "/home" },
-            }
+            Errors = errors
         };
 
         return new BadRequestObjectResult(response);

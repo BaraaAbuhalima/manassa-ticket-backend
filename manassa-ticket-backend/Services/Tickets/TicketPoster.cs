@@ -82,10 +82,6 @@ public class TicketPoster(
                 RefPin = result.Ticket.Pin,
                 Status = result.Ticket.Status
             },
-            Links = new Dictionary<string, string>
-            {
-                { "home", "/home" },
-            }
         };
     }
 }

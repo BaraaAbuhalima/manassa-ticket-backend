@@ -65,7 +65,8 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
             {
                 { "delete", "/api/ticket" },
                 { "republish", "/api/ticket/republish" },
-                { "modify", "/api/ticket" }
+                { "modify", "/api/ticket" },
+                { "download", "/api/ticket/file-url" }
             }
         };
     }
@@ -84,11 +85,7 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
                 StatusCode = StatusCodes.Status400BadRequest,
                 Success = false,
                 Message = "startDate must not be after endDate",
-                Errors = ["startDate must not be after endDate"],
-                Links = new Dictionary<string, string>
-                {
-                    { "home", "/home" },
-                }
+                Errors = ["startDate must not be after endDate"]
             };
         }
 

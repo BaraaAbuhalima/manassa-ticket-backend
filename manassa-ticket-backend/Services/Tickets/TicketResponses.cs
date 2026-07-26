@@ -11,11 +11,7 @@ internal static class TicketResponses
             StatusCode = StatusCodes.Status404NotFound,
             Success = false,
             Message = "Ticket not found",
-            Errors = ["Ticket not found"],
-            Links = new Dictionary<string, string>
-            {
-                { "home", "/home" },
-            }
+            Errors = ["Ticket not found"]
         };
     }
 }
