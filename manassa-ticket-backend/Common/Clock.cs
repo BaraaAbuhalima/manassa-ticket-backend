@@ -5,7 +5,7 @@ namespace manassa_ticket_backend.Common;
 // still yesterday evening UTC.
 public static class Clock
 {
-    private static readonly TimeSpan SearchTimeZoneOffset = TimeSpan.FromHours(10);
+    private static readonly TimeSpan SearchTimeZoneOffset = TimeSpan.FromHours(14);
 
     public static DateOnly TodayForSearch() => DateOnly.FromDateTime(DateTime.UtcNow + SearchTimeZoneOffset);
 }
