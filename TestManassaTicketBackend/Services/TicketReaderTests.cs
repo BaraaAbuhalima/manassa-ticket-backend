@@ -1,3 +1,4 @@
+using manassa_ticket_backend.Common;
 using manassa_ticket_backend.Configuration;
 using manassa_ticket_backend.Data;
 using manassa_ticket_backend.Models;
@@ -235,7 +236,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateAsync_ReturnsOnlyTicketsForThatDate()
     {
-        var date = new DateOnly(2026, 7, 5);
+        var date = Clock.TodayForSearch().AddDays(5);
         var onDate = CreateTicket(pin: "ONDATE", ticketDateTime: date.ToDateTime(new TimeOnly(10, 0)));
         var dayBefore = CreateTicket(pin: "BEFORE", ticketDateTime: date.AddDays(-1).ToDateTime(TimeOnly.MinValue));
         var dayAfter = CreateTicket(pin: "AFTER", ticketDateTime: date.AddDays(1).ToDateTime(TimeOnly.MinValue));
@@ -252,7 +253,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateAsync_ExcludesTicketsNotForSale()
     {
-        var date = new DateOnly(2026, 7, 5);
+        var date = Clock.TodayForSearch().AddDays(5);
         var dateTime = date.ToDateTime(TimeOnly.MinValue);
         var forSale = CreateTicket(pin: "FORSALE", ticketDateTime: dateTime, status: TicketSellStatus.ForSale);
         var sold = CreateTicket(pin: "SOLD", ticketDateTime: dateTime, status: TicketSellStatus.Sold);
@@ -268,7 +269,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateAsync_PaginatesResults_TwentyPerPage()
     {
-        var date = new DateOnly(2026, 7, 5);
+        var date = Clock.TodayForSearch().AddDays(5);
         var tickets = Enumerable.Range(0, 25)
             .Select(i => CreateTicket(pin: $"PIN{i:D3}", ticketDateTime: date.ToDateTime(TimeOnly.MinValue).AddMinutes(i)))
             .ToList();
@@ -292,7 +293,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateAsync_ReturnsTickets_OrderedByPriceAscending()
     {
-        var date = new DateOnly(2026, 7, 5);
+        var date = Clock.TodayForSearch().AddDays(5);
         var dateTime = date.ToDateTime(TimeOnly.MinValue);
         var expensive = CreateTicket(pin: "EXPENSIVE", ticketDateTime: dateTime, askedPriceJod: 30m);
         var cheap = CreateTicket(pin: "CHEAP", ticketDateTime: dateTime, askedPriceJod: 10m);
@@ -308,7 +309,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateAsync_ClampsPageBelowOne_ToPageOne()
     {
-        var date = new DateOnly(2026, 7, 5);
+        var date = Clock.TodayForSearch().AddDays(5);
         _dbContext.Tickets.Add(CreateTicket(ticketDateTime: date.ToDateTime(TimeOnly.MinValue)));
         await _dbContext.SaveChangesAsync();
 
@@ -319,16 +320,27 @@ public class TicketReaderTests
     }
 
     [Test]
+    public async Task GetForDateAsync_ReturnsBadRequest_WhenDateIsInThePast()
+    {
+        var date = Clock.TodayForSearch().AddDays(-1);
+
+        var result = await _sut.GetForDateAsync(date, page: 1);
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+    }
+
+    [Test]
     public async Task GetForDateRangeAsync_ReturnsTicketsWithinInclusiveRange()
     {
-        var start = new DateOnly(2026, 7, 1);
-        var end = new DateOnly(2026, 7, 3);
+        var start = Clock.TodayForSearch().AddDays(1);
+        var end = start.AddDays(2);
 
-        var before = CreateTicket(pin: "BEFORE", ticketDateTime: new DateTime(2026, 6, 30, 12, 0, 0));
-        var onStart = CreateTicket(pin: "ON_START", ticketDateTime: new DateTime(2026, 7, 1, 0, 0, 0));
-        var inside = CreateTicket(pin: "INSIDE", ticketDateTime: new DateTime(2026, 7, 2, 15, 0, 0));
-        var onEnd = CreateTicket(pin: "ON_END", ticketDateTime: new DateTime(2026, 7, 3, 23, 59, 0));
-        var after = CreateTicket(pin: "AFTER", ticketDateTime: new DateTime(2026, 7, 4, 0, 0, 0));
+        var before = CreateTicket(pin: "BEFORE", ticketDateTime: start.AddDays(-1).ToDateTime(new TimeOnly(12, 0)));
+        var onStart = CreateTicket(pin: "ON_START", ticketDateTime: start.ToDateTime(TimeOnly.MinValue));
+        var inside = CreateTicket(pin: "INSIDE", ticketDateTime: start.AddDays(1).ToDateTime(new TimeOnly(15, 0)));
+        var onEnd = CreateTicket(pin: "ON_END", ticketDateTime: end.ToDateTime(new TimeOnly(23, 59)));
+        var after = CreateTicket(pin: "AFTER", ticketDateTime: end.AddDays(1).ToDateTime(TimeOnly.MinValue));
         _dbContext.Tickets.AddRange(before, onStart, inside, onEnd, after);
         await _dbContext.SaveChangesAsync();
 
@@ -348,9 +360,21 @@ public class TicketReaderTests
     }
 
     [Test]
+    public async Task GetForDateRangeAsync_ReturnsBadRequest_WhenStartDateIsInThePast()
+    {
+        var start = Clock.TodayForSearch().AddDays(-1);
+        var end = Clock.TodayForSearch().AddDays(1);
+
+        var result = await _sut.GetForDateRangeAsync(start, end, page: 1);
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+    }
+
+    [Test]
     public async Task GetCheapestForNextTwoWeeksAsync_ReturnsCheapestTicketPerDay()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = Clock.TodayForSearch();
         var day0Cheap = CreateTicket(pin: "DAY0-CHEAP", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), askedPriceJod: 10m);
         var day0Expensive = CreateTicket(pin: "DAY0-EXPENSIVE", ticketDateTime: today.ToDateTime(new TimeOnly(15, 0)), askedPriceJod: 30m);
         var day1Cheap = CreateTicket(pin: "DAY1-CHEAP", ticketDateTime: today.AddDays(1).ToDateTime(new TimeOnly(9, 0)), askedPriceJod: 20m);
@@ -368,7 +392,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetCheapestForNextTwoWeeksAsync_ExcludesTicketsNotForSale()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = Clock.TodayForSearch();
         var forSale = CreateTicket(pin: "FORSALE", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), status: TicketSellStatus.ForSale, askedPriceJod: 15m);
         var sold = CreateTicket(pin: "SOLD", ticketDateTime: today.ToDateTime(new TimeOnly(9, 0)), status: TicketSellStatus.Sold, askedPriceJod: 5m);
         _dbContext.Tickets.AddRange(forSale, sold);
@@ -382,7 +406,7 @@ public class TicketReaderTests
     [Test]
     public async Task GetCheapestForNextTwoWeeksAsync_ExcludesTicketsOutsideTheNextTwoWeeks()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = Clock.TodayForSearch();
         var tooFar = CreateTicket(pin: "TOOFAR", ticketDateTime: today.AddDays(15).ToDateTime(TimeOnly.MinValue));
         var inPast = CreateTicket(pin: "PAST", ticketDateTime: today.AddDays(-1).ToDateTime(TimeOnly.MinValue));
         _dbContext.Tickets.AddRange(tooFar, inPast);
@@ -396,10 +420,11 @@ public class TicketReaderTests
     [Test]
     public async Task GetForDateRangeAsync_PaginatesResults_TwentyPerPage()
     {
-        var start = new DateOnly(2026, 7, 1);
-        var end = new DateOnly(2026, 7, 10);
+        var start = Clock.TodayForSearch().AddDays(1);
+        var end = start.AddDays(9);
+        var startDateTime = start.ToDateTime(TimeOnly.MinValue);
         var tickets = Enumerable.Range(0, 22)
-            .Select(i => CreateTicket(pin: $"PIN{i:D3}", ticketDateTime: new DateTime(2026, 7, 1).AddHours(i)))
+            .Select(i => CreateTicket(pin: $"PIN{i:D3}", ticketDateTime: startDateTime.AddHours(i)))
             .ToList();
         _dbContext.Tickets.AddRange(tickets);
         await _dbContext.SaveChangesAsync();

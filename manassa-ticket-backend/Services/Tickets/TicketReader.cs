@@ -73,6 +73,12 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
 
     public async Task<ApiResponse<List<GetTicketByIdResponse>>> GetForDateAsync(DateOnly date, int page)
     {
+        var pastDateError = ValidateNotInPast(date);
+        if (pastDateError is not null)
+        {
+            return pastDateError;
+        }
+
         return await GetPagedByDateRangeAsync(date, date, page);
     }
 
@@ -89,12 +95,18 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
             };
         }
 
+        var pastDateError = ValidateNotInPast(startDate);
+        if (pastDateError is not null)
+        {
+            return pastDateError;
+        }
+
         return await GetPagedByDateRangeAsync(startDate, endDate, page);
     }
 
     public async Task<ApiResponse<List<GetTicketByIdResponse>>> GetCheapestForNextTwoWeeksAsync()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = Clock.TodayForSearch();
         var rangeStart = today.ToDateTime(TimeOnly.MinValue);
         var rangeEndExclusive = today.AddDays(14).ToDateTime(TimeOnly.MinValue);
 
@@ -168,6 +180,23 @@ public class TicketReader(AppDbContext dbContext, IOptions<FeeOptions> feeOption
 
     private static string BuildRangeLink(DateOnly startDate, DateOnly endDate, int page) =>
         $"/api/ticket/range?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}&page={page}";
+
+    private static ApiResponse<List<GetTicketByIdResponse>>? 
+                           ValidateNotInPast(DateOnly date)
+    {
+        if (date >= Clock.TodayForSearch())
+        {
+            return null;
+        }
+
+        return new ApiResponse<List<GetTicketByIdResponse>>
+        {
+            StatusCode = StatusCodes.Status400BadRequest,
+            Success = false,
+            Message = "date must not be before today",
+            Errors = ["date must not be before today"]
+        };
+    }
 
     // Same fee math as TicketPurchaseService.CreatePaymentIntentAsync — a buyer should see the
     // price they'll actually be charged while browsing, not just find out about the fee once

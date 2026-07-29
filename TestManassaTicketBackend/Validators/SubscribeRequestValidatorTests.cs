@@ -1,3 +1,4 @@
+using manassa_ticket_backend.Common;
 using manassa_ticket_backend.DTOs.Requests;
 using manassa_ticket_backend.Validators;
 using FluentAssertions;
@@ -14,7 +15,7 @@ public class SubscribeRequestValidatorTests
     [Test]
     public void Validate_Passes_ForValidEmailAndFutureDate()
     {
-        var request = new SubscribeRequest { Email = "user@example.com", Date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(5) };
+        var request = new SubscribeRequest { Email = "user@example.com", Date = Clock.TodayForSearch().AddDays(5) };
 
         var result = _sut.Validate(request);
 
@@ -24,7 +25,7 @@ public class SubscribeRequestValidatorTests
     [Test]
     public void Validate_Passes_ForTodaysDate()
     {
-        var request = new SubscribeRequest { Email = "user@example.com", Date = DateOnly.FromDateTime(DateTime.UtcNow) };
+        var request = new SubscribeRequest { Email = "user@example.com", Date = Clock.TodayForSearch() };
 
         var result = _sut.Validate(request);
 
@@ -35,7 +36,7 @@ public class SubscribeRequestValidatorTests
     [TestCase("not-an-email")]
     public void Validate_Fails_ForInvalidEmail(string email)
     {
-        var request = new SubscribeRequest { Email = email, Date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1) };
+        var request = new SubscribeRequest { Email = email, Date = Clock.TodayForSearch().AddDays(1) };
 
         var result = _sut.Validate(request);
 
@@ -46,7 +47,7 @@ public class SubscribeRequestValidatorTests
     [Test]
     public void Validate_Fails_ForPastDate()
     {
-        var request = new SubscribeRequest { Email = "user@example.com", Date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1) };
+        var request = new SubscribeRequest { Email = "user@example.com", Date = Clock.TodayForSearch().AddDays(-1) };
 
         var result = _sut.Validate(request);
 

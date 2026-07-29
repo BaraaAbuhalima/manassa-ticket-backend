@@ -15,7 +15,7 @@ public class SubscribeRequestValidator : AbstractValidator<SubscribeRequest>
             .WithMessage($"Email must not exceed {ValidationConstants.EmailMaxLength} characters");
 
         RuleFor(x => x.Date)
-            .GreaterThanOrEqualTo(_ => DateOnly.FromDateTime(DateTime.UtcNow))
+            .GreaterThanOrEqualTo(_ => Clock.TodayForSearch())
             .WithMessage("Date must not be in the past");
     }
 }
